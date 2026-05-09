@@ -1,9 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Student } from '@/lib/types'
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns'
-import { TrendingUp, IndianRupee, Users, BarChart3 } from 'lucide-react'
+import { Student, getSeatStatus } from '@/lib/types'
+import { format, startOfWeek } from 'date-fns'
 
 export default function Analytics() {
   const [students, setStudents] = useState<Student[]>([])
@@ -12,132 +11,109 @@ export default function Analytics() {
 
   useEffect(() => {
     supabase.from('students').select('*').eq('is_active', true).then(({ data }) => {
-      if (data) setStudents(data)
+      if (data) setStudents(data as Student[])
     })
   }, [])
 
-  // Group by month
-  const byMonth: Record<string, Student[]> = {}
-  students.forEach(s => {
-    const key = format(new Date(s.payment_date), 'yyyy-MM')
-    byMonth[key] = [...(byMonth[key] || []), s]
-  })
+  const totalRevenue = students.reduce((sum, s) => sum + Number(s.amount), 0)
 
-  // Group by week
-  const byWeek: Record<string, Student[]> = {}
-  students.forEach(s => {
-    const d = new Date(s.payment_date)
-    const weekStart = format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd')
-    byWeek[weekStart] = [...(byWeek[weekStart] || []), s]
-  })
-
-  // Group by block
-  const byBlock: Record<number, Student[]> = { 1: [], 2: [] }
-  students.forEach(s => { byBlock[s.block] = [...(byBlock[s.block] || []), s] })
-
-  // Group by account
   const byAccount: Record<string, { count: number; total: number }> = {}
   students.forEach(s => {
     if (!byAccount[s.account]) byAccount[s.account] = { count: 0, total: 0 }
     byAccount[s.account].count++
-    byAccount[s.account].total += s.amount
+    byAccount[s.account].total += Number(s.amount)
   })
 
-  const totalRevenue = students.reduce((sum, s) => sum + s.amount, 0)
-  const totalStudents = students.length
+  const byBlock = { 1: students.filter(s => s.block === 1), 2: students.filter(s => s.block === 2) }
 
-  const groups = view === 'month' ? byMonth : byWeek
+  const groups: Record<string, Student[]> = {}
+  students.forEach(s => {
+    const d = new Date(s.payment_date)
+    const key = view === 'month'
+      ? format(d, 'yyyy-MM')
+      : format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    groups[key] = [...(groups[key] || []), s]
+  })
   const sortedKeys = Object.keys(groups).sort().reverse()
 
+  const card = (emoji: string, label: string, value: string, color: string) => (
+    <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'16px 18px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1 }}>
+      <div style={{ fontSize:'24px', marginBottom:'8px' }}>{emoji}</div>
+      <div style={{ fontSize:'22px', fontWeight:'800', color, fontFamily:"'Sora', sans-serif" }}>{value}</div>
+      <div style={{ color:'#64748b', fontSize:'12px', marginTop:'4px', fontWeight:'600' }}>{label}</div>
+    </div>
+  )
+
   return (
-    <div className="space-y-6">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={<Users />} label="Total Students" value={totalStudents.toString()} color="#d4a017" />
-        <StatCard icon={<IndianRupee />} label="Total Revenue" value={`₹${totalRevenue.toLocaleString('en-IN')}`} color="#c84b31" />
-        <StatCard icon={<Users />} label="Block 1" value={(byBlock[1]?.length || 0).toString()} color="#2d6a4f" />
-        <StatCard icon={<Users />} label="Block 2" value={(byBlock[2]?.length || 0).toString()} color="#0f3460" />
+    <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+      {/* Summary */}
+      <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
+        {card('💰', 'Total Revenue', `₹${totalRevenue.toLocaleString('en-IN')}`, '#4ade80')}
+        {card('👥', 'Total Students', String(students.length), '#a5b4fc')}
+        {card('🏠', 'Block 1', String(byBlock[1].length), '#f9a8d4')}
+        {card('🏢', 'Block 2', String(byBlock[2].length), '#67e8f9')}
       </div>
 
       {/* Account breakdown */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-5 border border-stone-200">
-        <h3 className="font-medium text-stone-700 mb-4 flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-amber-500" /> Account-wise Revenue
-        </h3>
-        <div className="space-y-3">
-          {Object.entries(byAccount).map(([acc, { count, total }]) => (
-            <div key={acc} className="flex items-center justify-between">
+      <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ fontWeight:'800', fontSize:'16px', color:'#e2e8f0', marginBottom:'16px', fontFamily:"'Sora', sans-serif" }}>🏦 Account-wise Revenue</div>
+        {Object.entries(byAccount).length === 0
+          ? <p style={{ color:'#475569', fontSize:'13px' }}>No data yet</p>
+          : Object.entries(byAccount).map(([acc, { count, total }]) => (
+            <div key={acc} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'14px' }}>
               <div>
-                <div className="font-medium text-stone-800 text-sm">{acc}</div>
-                <div className="text-xs text-stone-400">{count} student{count !== 1 ? 's' : ''}</div>
+                <div style={{ fontWeight:'700', color:'#e2e8f0', fontSize:'14px' }}>{acc}</div>
+                <div style={{ color:'#64748b', fontSize:'12px' }}>{count} student{count !== 1 ? 's' : ''}</div>
               </div>
-              <div className="text-right">
-                <div className="font-semibold text-stone-800">₹{total.toLocaleString('en-IN')}</div>
-                <div className="text-xs text-stone-400">{totalRevenue ? Math.round((total / totalRevenue) * 100) : 0}%</div>
+              <div style={{ textAlign:'right' }}>
+                <div style={{ fontWeight:'800', color:'#4ade80', fontSize:'15px' }}>₹{total.toLocaleString('en-IN')}</div>
+                <div style={{ color:'#475569', fontSize:'11px' }}>{totalRevenue ? Math.round((total / totalRevenue) * 100) : 0}%</div>
               </div>
             </div>
-          ))}
-          {Object.keys(byAccount).length === 0 && (
-            <p className="text-stone-400 text-sm text-center py-4">No data yet</p>
-          )}
-        </div>
+          ))
+        }
       </div>
 
-      {/* Time-based breakdown */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-5 border border-stone-200">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-medium text-stone-700 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-amber-500" />
-            {view === 'month' ? 'Month-wise' : 'Week-wise'} Collections
-          </h3>
-          <div className="flex gap-1 bg-stone-100 p-1 rounded-lg">
-            {(['month', 'week'] as const).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === v ? 'bg-white shadow text-stone-800' : 'text-stone-500'}`}>
-                {v === 'month' ? 'Monthly' : 'Weekly'}
-              </button>
+      {/* Time breakdown */}
+      <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'16px' }}>
+          <div style={{ fontWeight:'800', fontSize:'16px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif" }}>📈 Collections</div>
+          <div style={{ display:'flex', gap:'4px', background:'rgba(255,255,255,0.06)', padding:'4px', borderRadius:'10px' }}>
+            {(['month','week'] as const).map(v => (
+              <button key={v} onClick={() => setView(v)} style={{
+                padding:'6px 14px', borderRadius:'8px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'700', fontSize:'12px',
+                background: view === v ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent',
+                color: view === v ? 'white' : '#64748b',
+              }}>{v === 'month' ? 'Monthly' : 'Weekly'}</button>
             ))}
           </div>
         </div>
-        <div className="space-y-3 max-h-80 overflow-y-auto">
+        <div style={{ maxHeight:'300px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'10px' }}>
           {sortedKeys.map(key => {
             const grp = groups[key]
-            const total = grp.reduce((s, st) => s + st.amount, 0)
+            const total = grp.reduce((s, st) => s + Number(st.amount), 0)
+            const pct = totalRevenue ? (total / totalRevenue) * 100 : 0
             const label = view === 'month'
               ? format(new Date(key + '-01'), 'MMMM yyyy')
-              : `Week of ${format(new Date(key), 'dd MMM')}`
+              : `Week of ${format(new Date(key), 'dd MMM yyyy')}`
             return (
-              <div key={key} className="flex items-center gap-3">
-                <div className="w-24 text-xs text-stone-500 shrink-0">{label}</div>
-                <div className="flex-1 bg-stone-100 rounded-full h-2 overflow-hidden">
-                  <div className="h-full rounded-full"
-                    style={{ width: `${Math.min(100, (total / (totalRevenue || 1)) * 100 * 5)}%`, background: 'linear-gradient(90deg, #d4a017, #c84b31)' }} />
+              <div key={key}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'6px' }}>
+                  <span style={{ color:'#94a3b8', fontSize:'12px', fontWeight:'600' }}>{label}</span>
+                  <div style={{ textAlign:'right' }}>
+                    <span style={{ color:'#4ade80', fontWeight:'800', fontSize:'13px' }}>₹{total.toLocaleString('en-IN')}</span>
+                    <span style={{ color:'#475569', fontSize:'11px', marginLeft:'8px' }}>{grp.length} students</span>
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <div className="text-xs font-semibold text-stone-800">₹{total.toLocaleString('en-IN')}</div>
-                  <div className="text-[10px] text-stone-400">{grp.length} students</div>
+                <div style={{ height:'6px', background:'rgba(255,255,255,0.06)', borderRadius:'3px', overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${Math.min(100, pct * 5)}%`, background:'linear-gradient(90deg,#6366f1,#ec4899)', borderRadius:'3px', transition:'width 0.5s ease' }} />
                 </div>
               </div>
             )
           })}
-          {sortedKeys.length === 0 && <p className="text-stone-400 text-sm text-center py-4">No payment data yet</p>}
+          {sortedKeys.length === 0 && <p style={{ color:'#475569', fontSize:'13px' }}>No payment data yet</p>}
         </div>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
-  return (
-    <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 border border-stone-200">
-      <div className="flex items-center justify-between mb-3">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
-          style={{ background: color }}>
-          <div className="w-4 h-4">{icon}</div>
-        </div>
-      </div>
-      <div className="text-2xl font-bold text-stone-800" style={{ fontFamily: 'DM Serif Display, serif' }}>{value}</div>
-      <div className="text-xs text-stone-500 mt-1">{label}</div>
     </div>
   )
 }

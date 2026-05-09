@@ -7,10 +7,10 @@ interface Props {
 }
 
 const STATUS_STYLE: Record<string, React.CSSProperties> = {
-  vacant:   { background: '#dcfce7', border: '2px solid #86efac', color: '#166534' },
-  occupied: { background: '#fecdd3', border: '2px solid #fb7185', color: '#881337' },
-  'due-soon': { background: '#fde68a', border: '2px solid #fbbf24', color: '#78350f' },
-  overdue:  { background: '#ef4444', border: '2px solid #b91c1c', color: '#fff' },
+  vacant:   { background: 'rgba(34,197,94,0.2)', border: '2px solid rgba(34,197,94,0.5)', color: '#4ade80' },
+  occupied: { background: 'rgba(249,168,212,0.25)', border: '2px solid rgba(249,168,212,0.5)', color: '#f9a8d4' },
+  'due-soon': { background: 'rgba(253,224,71,0.25)', border: '2px solid rgba(253,224,71,0.5)', color: '#fde047' },
+  overdue:  { background: 'rgba(239,68,68,0.6)', border: '2px solid rgba(239,68,68,0.8)', color: '#fff' },
 }
 
 function S({ n, seatsData, onSeatClick }: { n: number; seatsData: SeatWithStudent[]; onSeatClick: (s: SeatWithStudent) => void }) {

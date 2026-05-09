@@ -8,36 +8,43 @@ import Block2Grid from '@/components/Block2Grid'
 import SeatModal from '@/components/SeatModal'
 import StudentForm from '@/components/StudentForm'
 import Analytics from '@/components/Analytics'
-import { BookOpen, LogOut, Users, TrendingUp, Grid3X3, LayoutGrid, Search } from 'lucide-react'
 
-type Tab = 'block1' | 'block2' | 'analytics' | 'students'
+type Tab = 'block1' | 'block2' | 'students' | 'analytics'
 
-// All seat numbers for each block
 const BLOCK1_ALL = [
-  38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20,
-  19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5,
-  1, 2, 3, 4,
-  39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,
-  140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157,
-  139, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128, 127, 126, 125, 124, 123, 122,
-  104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121,
-  103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86,
-  70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85,
-  69, 68, 67, 66, 65, 64, 63, 62, 61, 60, 59, 58, 57, 56, 55,
+  38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,
+  19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,
+  39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,
+  140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,
+  139,138,137,136,135,134,133,132,131,130,129,128,127,126,125,124,123,122,
+  104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,
+  103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,
+  70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,
+  69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,
 ]
-
 const BLOCK2_ALL = Array.from({ length: 86 }, (_, i) => i + 1)
 
+function StatCard({ emoji, label, value, sub, color }: { emoji: string; label: string; value: string | number; sub?: string; color: string }) {
+  return (
+    <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'18px 20px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'140px' }}>
+      <div style={{ fontSize:'24px', marginBottom:'10px' }}>{emoji}</div>
+      <div style={{ fontSize:'26px', fontWeight:'800', color, fontFamily:"'Sora', sans-serif", lineHeight:1 }}>{value}</div>
+      <div style={{ color:'#94a3b8', fontSize:'12px', marginTop:'5px', fontWeight:'600' }}>{label}</div>
+      {sub && <div style={{ color:'#475569', fontSize:'11px', marginTop:'2px' }}>{sub}</div>}
+    </div>
+  )
+}
+
 export default function DashboardClient() {
-  const router = useRouter()
+  const router   = useRouter()
   const supabase = createClient()
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [tab, setTab] = useState<Tab>('block1')
-  const [students, setStudents] = useState<Student[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [isAdmin, setIsAdmin]           = useState(false)
+  const [tab, setTab]                   = useState<Tab>('block1')
+  const [students, setStudents]         = useState<Student[]>([])
+  const [loading, setLoading]           = useState(true)
+  const [search, setSearch]             = useState('')
   const [selectedSeat, setSelectedSeat] = useState<SeatWithStudent | null>(null)
-  const [showForm, setShowForm] = useState(false)
+  const [showForm, setShowForm]         = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
 
   useEffect(() => {
@@ -45,195 +52,191 @@ export default function DashboardClient() {
       if (!user) { router.push('/'); return }
       setIsAdmin(user.user_metadata?.role === 'admin')
     })
-  }, [router, supabase.auth])
+  }, [])
 
   const loadStudents = useCallback(async () => {
     const { data } = await supabase.from('students').select('*').eq('is_active', true)
     if (data) setStudents(data as Student[])
     setLoading(false)
-  }, [supabase])
+  }, [])
 
   useEffect(() => { loadStudents() }, [loadStudents])
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
+  const handleLogout = async () => { await supabase.auth.signOut(); router.push('/') }
 
-  const buildSeats = (block: 1 | 2, allNums: number[]): SeatWithStudent[] => {
-    const unique = [...new Set(allNums)]
-    return unique.map(n => {
+  const buildSeats = (block: 1 | 2, nums: number[]): SeatWithStudent[] =>
+    [...new Set(nums)].map(n => {
       const student = students.find(s => s.block === block && s.seat_number === n)
       return { block, seat_number: n, student, status: getSeatStatus(student) }
     })
-  }
 
-  const block1Seats = buildSeats(1, BLOCK1_ALL)
-  const block2Seats = buildSeats(2, BLOCK2_ALL)
+  const b1Seats = buildSeats(1, BLOCK1_ALL)
+  const b2Seats = buildSeats(2, BLOCK2_ALL)
 
-  const overdueCount = students.filter(s => getSeatStatus(s) === 'overdue').length
-  const dueSoonCount = students.filter(s => getSeatStatus(s) === 'due-soon').length
+  const totalSeats   = b1Seats.length + b2Seats.length
+  const occupied     = students.length
+  const vacant       = totalSeats - occupied
+  const overdue      = students.filter(s => getSeatStatus(s) === 'overdue').length
+  const dueSoon      = students.filter(s => getSeatStatus(s) === 'due-soon').length
 
-  const handleSeatClick = (seat: SeatWithStudent) => {
-    setSelectedSeat(seat)
-    setShowForm(false)
-    setEditingStudent(null)
-  }
+  const handleSeatClick = (seat: SeatWithStudent) => { setSelectedSeat(seat); setShowForm(false); setEditingStudent(null) }
 
   const handleVacate = async () => {
-    if (!selectedSeat?.student) return
-    if (!confirm(`Vacate seat ${selectedSeat.seat_number}? The student will be marked inactive.`)) return
+    if (!selectedSeat?.student || !isAdmin) return
+    if (!confirm('Mark this seat as vacant?')) return
     await supabase.from('students').update({ is_active: false }).eq('id', selectedSeat.student.id)
-    setSelectedSeat(null)
-    loadStudents()
+    setSelectedSeat(null); loadStudents()
   }
 
-  const filteredStudents = students.filter(s =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.exam.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.college.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    String(s.seat_number).includes(searchQuery)
+  const filtered = students.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.exam.toLowerCase().includes(search.toLowerCase()) ||
+    s.college.toLowerCase().includes(search.toLowerCase()) ||
+    String(s.seat_number).includes(search)
   )
 
-  const availableTabs: { key: Tab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
-    { key: 'block1', label: 'Block 1', icon: <Grid3X3 className="w-4 h-4" /> },
-    { key: 'block2', label: 'Block 2', icon: <LayoutGrid className="w-4 h-4" /> },
-    { key: 'students', label: 'Students', icon: <Users className="w-4 h-4" /> },
-    { key: 'analytics', label: 'Analytics', icon: <TrendingUp className="w-4 h-4" />, adminOnly: true },
+  const tabs: { key: Tab; label: string; emoji: string; adminOnly?: boolean }[] = [
+    { key:'block1',    label:'Block 1',    emoji:'🏠' },
+    { key:'block2',    label:'Block 2',    emoji:'🏢' },
+    { key:'students',  label:'Students',   emoji:'👥' },
+    { key:'analytics', label:'Analytics',  emoji:'📊', adminOnly:true },
+  ]
+
+  const sBtn = (active: boolean): React.CSSProperties => ({
+    padding:'9px 18px', borderRadius:'10px', border:'none', cursor:'pointer', fontFamily:'inherit',
+    fontWeight:'700', fontSize:'13px', transition:'all 0.2s',
+    background: active ? 'linear-gradient(135deg, #6366f1, #ec4899)' : 'transparent',
+    color: active ? 'white' : '#64748b',
+    boxShadow: active ? '0 4px 12px rgba(99,102,241,0.4)' : 'none',
+  })
+
+  const legend = [
+    { label:'Vacant',         color:'#4ade80', bg:'rgba(34,197,94,0.2)' },
+    { label:'Occupied',       color:'#f9a8d4', bg:'rgba(249,168,212,0.2)' },
+    { label:'Due Soon',       color:'#fde047', bg:'rgba(253,224,71,0.2)' },
+    { label:'Overdue',        color:'#f87171', bg:'rgba(239,68,68,0.2)' },
   ]
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(135deg, #f0ece4 0%, #e8e0d4 100%)' }}>
-      {/* Header */}
-      <header className="sticky top-0 z-40 px-4 md:px-6 py-3 flex items-center justify-between"
-        style={{ background: 'rgba(248,245,240,0.9)', backdropFilter: 'blur(16px)', borderBottom: '1px solid #e5ddd0' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #d4a017, #c84b31)' }}>
-            <BookOpen className="w-5 h-5 text-white" />
-          </div>
+    <div style={{ minHeight:'100vh', background:'#0f172a', fontFamily:"'Nunito', sans-serif", color:'#f1f5f9' }}>
+
+      {/* TOP BAR */}
+      <header style={{ padding:'14px 24px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid rgba(255,255,255,0.07)', background:'rgba(15,23,42,0.9)', backdropFilter:'blur(16px)', position:'sticky', top:0, zIndex:40 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+          <div style={{ width:'40px', height:'40px', borderRadius:'12px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px' }}>📚</div>
           <div>
-            <div className="font-bold text-stone-800 text-sm leading-none" style={{ fontFamily: 'DM Serif Display, serif' }}>StudyNest</div>
-            <div className="text-[10px] text-stone-400">{isAdmin ? '⚡ Admin' : '👤 Staff'}</div>
+            <div style={{ fontWeight:'800', fontSize:'16px', fontFamily:"'Sora', sans-serif", color:'#f1f5f9', lineHeight:1 }}>StudyNest</div>
+            <div style={{ fontSize:'11px', color:'#475569', marginTop:'2px' }}>{isAdmin ? '⚡ Admin' : '👤 Staff'}</div>
           </div>
         </div>
 
-        <div className="hidden md:flex items-center gap-2">
-          <span className="text-xs px-3 py-1 rounded-full bg-stone-100 text-stone-600 font-medium">{students.length} Active</span>
-          {dueSoonCount > 0 && <span className="text-xs px-3 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{dueSoonCount} Due Soon</span>}
-          {overdueCount > 0 && <span className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">{overdueCount} Overdue</span>}
+        {/* Summary pills */}
+        <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+          {overdue > 0  && <span style={{ padding:'5px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:'700', background:'rgba(239,68,68,0.15)', color:'#f87171', border:'1px solid rgba(239,68,68,0.3)' }}>🔴 {overdue} Overdue</span>}
+          {dueSoon > 0  && <span style={{ padding:'5px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:'700', background:'rgba(251,191,36,0.15)', color:'#fde047', border:'1px solid rgba(251,191,36,0.3)' }}>🟡 {dueSoon} Due Soon</span>}
+          <span style={{ padding:'5px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:'700', background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)' }}>👥 {occupied} Active</span>
         </div>
 
-        <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800 transition-colors">
-          <LogOut className="w-4 h-4" />
-          <span className="hidden md:inline">Logout</span>
+        <button onClick={handleLogout} style={{ padding:'8px 16px', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'#64748b', fontSize:'13px', fontWeight:'600', cursor:'pointer', fontFamily:'inherit' }}>
+          Sign Out
         </button>
       </header>
 
-      {/* Tabs */}
-      <div className="px-4 md:px-6 pt-4">
-        <div className="flex gap-1 bg-white/50 p-1 rounded-2xl border border-stone-200 w-fit">
-          {availableTabs.filter(t => !t.adminOnly || isAdmin).map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${tab === t.key ? 'bg-white shadow-sm text-stone-800' : 'text-stone-500 hover:text-stone-700'}`}>
-              {t.icon} {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      <main className="flex-1 p-4 md:p-6">
+      <main style={{ padding:'24px' }}>
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-4 border-amber-400 border-t-transparent rounded-full animate-spin" />
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh', flexDirection:'column', gap:'16px' }}>
+            <div style={{ width:'48px', height:'48px', borderRadius:'50%', border:'4px solid rgba(99,102,241,0.2)', borderTop:'4px solid #6366f1', animation:'spin 0.8s linear infinite' }} />
+            <div style={{ color:'#475569', fontSize:'14px' }}>Loading seats…</div>
           </div>
         ) : (
           <>
-            {/* Color legend for seat views */}
+            {/* STAT CARDS */}
+            <div style={{ display:'flex', gap:'12px', flexWrap:'wrap', marginBottom:'24px' }}>
+              <StatCard emoji="🪑" label="Total Seats"    value={totalSeats} color="#a5b4fc" />
+              <StatCard emoji="✅" label="Occupied"       value={occupied}   color="#4ade80" sub={`${vacant} vacant`} />
+              {dueSoon > 0  && <StatCard emoji="⏰" label="Due Soon"  value={dueSoon}  color="#fde047" />}
+              {overdue > 0  && <StatCard emoji="🚨" label="Overdue"   value={overdue}  color="#f87171" />}
+            </div>
+
+            {/* TABS */}
+            <div style={{ display:'flex', gap:'4px', background:'rgba(255,255,255,0.04)', padding:'6px', borderRadius:'14px', border:'1px solid rgba(255,255,255,0.07)', width:'fit-content', marginBottom:'20px' }}>
+              {tabs.filter(t => !t.adminOnly || isAdmin).map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)} style={sBtn(tab === t.key)}>
+                  {t.emoji} {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* LEGEND for seat views */}
             {(tab === 'block1' || tab === 'block2') && (
-              <div className="flex flex-wrap gap-3 mb-4">
-                {[
-                  { label: 'Vacant', cls: 'bg-emerald-100 border-emerald-300' },
-                  { label: 'Occupied', cls: 'bg-rose-200 border-rose-400' },
-                  { label: 'Due Soon (≤2 days)', cls: 'bg-amber-200 border-amber-400' },
-                  { label: 'Overdue', cls: 'bg-red-500 border-red-700' },
-                ].map(({ label, cls }) => (
-                  <div key={label} className="flex items-center gap-1.5">
-                    <div className={`w-5 h-5 rounded border-2 ${cls}`} />
-                    <span className="text-xs text-stone-500">{label}</span>
+              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', marginBottom:'16px' }}>
+                {legend.map(l => (
+                  <div key={l.label} style={{ display:'flex', alignItems:'center', gap:'7px', padding:'6px 12px', borderRadius:'20px', background:l.bg, border:`1px solid ${l.color}33` }}>
+                    <div style={{ width:'10px', height:'10px', borderRadius:'3px', background:l.color }} />
+                    <span style={{ fontSize:'12px', fontWeight:'700', color:l.color }}>{l.label}</span>
                   </div>
                 ))}
               </div>
             )}
 
+            {/* BLOCK 1 */}
             {tab === 'block1' && (
-              <div className="bg-white/60 rounded-2xl p-4 border border-stone-200 overflow-x-auto">
-                <h2 className="text-lg font-medium text-stone-700 mb-4" style={{ fontFamily: 'DM Serif Display, serif' }}>Block 1</h2>
-                <Block1Grid seatsData={block1Seats} onSeatClick={handleSeatClick} />
+              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'20px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'18px', color:'#e2e8f0', marginBottom:'16px' }}>🏠 Block 1</div>
+                <Block1Grid seatsData={b1Seats} onSeatClick={handleSeatClick} />
               </div>
             )}
 
+            {/* BLOCK 2 */}
             {tab === 'block2' && (
-              <div className="bg-white/60 rounded-2xl p-4 border border-stone-200 overflow-x-auto">
-                <h2 className="text-lg font-medium text-stone-700 mb-4" style={{ fontFamily: 'DM Serif Display, serif' }}>Block 2</h2>
-                <Block2Grid seatsData={block2Seats} onSeatClick={handleSeatClick} />
+              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'20px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'18px', color:'#e2e8f0', marginBottom:'16px' }}>🏢 Block 2</div>
+                <Block2Grid seatsData={b2Seats} onSeatClick={handleSeatClick} />
               </div>
             )}
 
+            {/* ANALYTICS */}
             {tab === 'analytics' && isAdmin && <Analytics />}
 
+            {/* STUDENTS LIST */}
             {tab === 'students' && (
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
-                  <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Search by name, exam, college, or seat number…"
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-stone-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+              <div>
+                <div style={{ position:'relative', marginBottom:'16px' }}>
+                  <span style={{ position:'absolute', left:'14px', top:'50%', transform:'translateY(-50%)', fontSize:'16px' }}>🔍</span>
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, exam, college, seat number…"
+                    style={{ width:'100%', padding:'12px 16px 12px 42px', borderRadius:'12px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#f1f5f9', fontSize:'14px', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
                 </div>
 
-                <div className="space-y-2">
-                  {filteredStudents.length === 0 && (
-                    <div className="text-center py-12 text-stone-400 text-sm">
-                      {searchQuery ? 'No students match your search' : 'No active students yet'}
+                <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                  {filtered.length === 0 && (
+                    <div style={{ textAlign:'center', padding:'60px 0', color:'#475569' }}>
+                      {search ? 'No students match your search' : 'No active students yet'}
                     </div>
                   )}
-                  {filteredStudents.map(student => {
+                  {filtered.map(student => {
                     const status = getSeatStatus(student)
-                    const badgeColors: Record<string, string> = {
-                      occupied: 'bg-rose-100 text-rose-700',
-                      'due-soon': 'bg-amber-100 text-amber-700',
-                      overdue: 'bg-red-100 text-red-700',
-                      vacant: 'bg-stone-100 text-stone-600',
-                    }
-                    const badgeLabel: Record<string, string> = {
-                      occupied: 'Active',
-                      'due-soon': 'Due Soon',
-                      overdue: 'Overdue',
-                      vacant: 'Inactive',
-                    }
+                    const statusColor: Record<string, string> = { occupied:'#a5b4fc', 'due-soon':'#fde047', overdue:'#f87171', vacant:'#4ade80' }
+                    const statusBg: Record<string, string>    = { occupied:'rgba(99,102,241,0.12)', 'due-soon':'rgba(253,224,71,0.12)', overdue:'rgba(239,68,68,0.12)', vacant:'rgba(34,197,94,0.12)' }
+                    const statusLabel: Record<string, string> = { occupied:'Active', 'due-soon':'Due Soon', overdue:'Overdue', vacant:'Inactive' }
                     return (
-                      <div key={student.id}
-                        className="bg-white/70 rounded-2xl p-4 border border-stone-200 flex items-start justify-between gap-4 cursor-pointer hover:border-amber-300 transition-colors"
-                        onClick={() => {
-                          const seat: SeatWithStudent = { block: student.block as 1 | 2, seat_number: student.seat_number, student, status }
-                          setSelectedSeat(seat)
-                        }}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0"
-                            style={{ background: 'linear-gradient(135deg, #d4a017, #c84b31)' }}>
+                      <div key={student.id} onClick={() => { const seat: SeatWithStudent = { block: student.block as 1|2, seat_number: student.seat_number, student, status }; setSelectedSeat(seat) }}
+                        style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'14px 16px', border:'1.5px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', cursor:'pointer', transition:'border-color 0.2s' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)')}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                          <div style={{ width:'44px', height:'44px', borderRadius:'12px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'18px', color:'white', flexShrink:0, fontFamily:"'Sora', sans-serif" }}>
                             {student.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-semibold text-stone-800">{student.name}</div>
-                            <div className="text-xs text-stone-500">{student.exam} · {student.college}</div>
-                            <div className="text-xs text-stone-400 mt-0.5">Block {student.block} · Seat {student.seat_number}</div>
+                            <div style={{ fontWeight:'700', color:'#f1f5f9', fontSize:'14px' }}>{student.name}</div>
+                            <div style={{ color:'#64748b', fontSize:'12px', marginTop:'2px' }}>{student.exam} · {student.college}</div>
+                            <div style={{ color:'#475569', fontSize:'11px', marginTop:'2px' }}>Block {student.block} · Seat {student.seat_number}</div>
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${badgeColors[status]}`}>{badgeLabel[status]}</span>
-                          <div className="text-xs text-stone-400 mt-1">Due: {new Date(student.due_date).toLocaleDateString('en-IN')}</div>
-                          {isAdmin && <div className="text-xs font-semibold text-stone-700 mt-0.5">₹{Number(student.amount).toLocaleString('en-IN')}</div>}
+                        <div style={{ textAlign:'right', flexShrink:0 }}>
+                          <span style={{ padding:'4px 10px', borderRadius:'12px', fontSize:'11px', fontWeight:'700', background:statusBg[status], color:statusColor[status] }}>{statusLabel[status]}</span>
+                          <div style={{ color:'#64748b', fontSize:'11px', marginTop:'5px' }}>Due: {new Date(student.due_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
+                          {isAdmin && <div style={{ color:'#6366f1', fontSize:'12px', fontWeight:'700', marginTop:'2px' }}>₹{Number(student.amount).toLocaleString('en-IN')}</div>}
                         </div>
                       </div>
                     )
@@ -245,7 +248,7 @@ export default function DashboardClient() {
         )}
       </main>
 
-      {/* Seat Modal */}
+      {/* MODALS */}
       {selectedSeat && !showForm && (
         <SeatModal
           student={selectedSeat.student || null}
@@ -259,8 +262,6 @@ export default function DashboardClient() {
           onVacateSeat={handleVacate}
         />
       )}
-
-      {/* Student Form Modal */}
       {showForm && selectedSeat && (
         <StudentForm
           block={selectedSeat.block}
@@ -270,6 +271,13 @@ export default function DashboardClient() {
           onSaved={() => { setShowForm(false); setSelectedSeat(null); loadStudents() }}
         />
       )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        input::placeholder { color: #475569; }
+        textarea::placeholder { color: #475569; }
+        select option { background: #1e293b; color: #f1f5f9; }
+      `}</style>
     </div>
   )
 }

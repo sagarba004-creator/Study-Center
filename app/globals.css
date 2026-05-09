@@ -2,48 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  margin: 0;
-  padding: 0;
   min-height: 100vh;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
+  background: #0f172a;
+  color: #f1f5f9;
 }
-
-h1, h2, h3, h4 {
-  font-family: 'DM Serif Display', Georgia, serif;
-}
-
-.seat-cell {
-  transition: all 0.15s ease;
-  cursor: pointer;
-  user-select: none;
-  position: relative;
-}
-.seat-cell:hover {
-  transform: scale(1.12);
-  z-index: 20;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-}
-.seat-cell:active { transform: scale(0.95); }
 
 @keyframes pulse-warning {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(251,191,36,0.5); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 4px rgba(251,191,36,0); }
 }
 @keyframes pulse-danger {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
   70% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
 }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .animate-pulse-warning { animation: pulse-warning 2s ease-in-out infinite; }
-.animate-pulse-danger { animation: pulse-danger 1.5s ease-out infinite; }
+.animate-pulse-danger  { animation: pulse-danger  1.5s ease-out infinite; }
+.animate-fadeIn        { animation: fadeIn 0.3s ease forwards; }
+.animate-slideUp       { animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards; }
 
 .modal-backdrop {
-  backdrop-filter: blur(8px);
-  background: rgba(26,26,46,0.55);
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c9c0b4; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
