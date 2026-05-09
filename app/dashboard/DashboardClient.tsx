@@ -260,6 +260,7 @@ export default function DashboardClient() {
           onAddStudent={() => { setEditingStudent(null); setShowForm(true) }}
           onEditStudent={() => { setEditingStudent(selectedSeat.student || null); setShowForm(true) }}
           onVacateSeat={handleVacate}
+          onRefresh={loadStudents}
         />
       )}
       {showForm && selectedSeat && (
