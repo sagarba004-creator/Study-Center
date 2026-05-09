@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { BookOpen, Lock, Mail, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginClient() {
   const [email, setEmail] = useState('')
@@ -23,52 +22,77 @@ export default function LoginClient() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
-      <div className="relative w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
-            style={{ background: 'linear-gradient(135deg, #d4a017, #c84b31)' }}>
-            <BookOpen className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl text-white mb-1" style={{ fontFamily: 'DM Serif Display, serif' }}>StudyNest</h1>
-          <p className="text-white/50 text-sm">Study Center Management</p>
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      fontFamily: "'DM Sans', system-ui, sans-serif", padding: '16px'
+    }}>
+      <div style={{ width: '100%', maxWidth: '380px' }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '16px', margin: '0 auto 16px',
+            background: 'linear-gradient(135deg, #d4a017, #c84b31)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px'
+          }}>📚</div>
+          <h1 style={{ color: 'white', fontSize: '28px', margin: '0 0 4px', fontFamily: 'Georgia, serif', fontWeight: 'normal' }}>StudyNest</h1>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '13px', margin: 0 }}>Study Center Management</p>
         </div>
-        <div className="rounded-3xl p-8 shadow-2xl"
-          style={{ background: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <h2 className="text-xl text-white mb-6 font-medium">Welcome back</h2>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-white/60 text-xs uppercase tracking-widest mb-2">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="your@email.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl text-white placeholder-white/20 text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
-              </div>
+
+        {/* Card */}
+        <div style={{
+          background: 'rgba(255,255,255,0.08)', borderRadius: '24px', padding: '32px',
+          border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(20px)'
+        }}>
+          <h2 style={{ color: 'white', fontSize: '18px', margin: '0 0 24px', fontWeight: '500' }}>Welcome back</h2>
+
+          <form onSubmit={handleLogin}>
+            {/* Email */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="your@email.com"
+                style={{
+                  width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'rgba(255,255,255,0.08)', color: 'white', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
+                }} />
             </div>
-            <div>
-              <label className="block text-white/60 text-xs uppercase tracking-widest mb-2">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+
+            {/* Password */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '8px' }}>Password</label>
+              <div style={{ position: 'relative' }}>
                 <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-3 rounded-xl text-white placeholder-white/20 text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
+                  style={{
+                    width: '100%', padding: '12px 44px 12px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.15)',
+                    background: 'rgba(255,255,255,0.08)', color: 'white', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
+                  }} />
                 <button type="button" onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '16px' }}>
+                  {showPass ? '🙈' : '👁'}
                 </button>
               </div>
             </div>
-            {error && <div className="text-red-400 text-sm bg-red-500/10 px-3 py-2 rounded-lg">{error}</div>}
+
+            {error && (
+              <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '10px 14px', color: '#fca5a5', fontSize: '13px', marginBottom: '16px' }}>
+                {error}
+              </div>
+            )}
+
             <button type="submit" disabled={loading}
-              className="w-full py-3 rounded-xl text-white font-medium text-sm active:scale-95 disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #d4a017, #c84b31)' }}>
+              style={{
+                width: '100%', padding: '13px', borderRadius: '12px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                background: 'linear-gradient(135deg, #d4a017, #c84b31)', color: 'white', fontSize: '14px', fontWeight: '600',
+                opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s'
+              }}>
               {loading ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
         </div>
-        <p className="text-center text-white/25 text-xs mt-6">Contact admin for account access</p>
+
+        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: '12px', marginTop: '24px' }}>
+          Contact admin for account access
+        </p>
       </div>
     </div>
   )
