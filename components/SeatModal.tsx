@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 
 interface Props {
   student: Student | null
-  seatNumber: number
+  seatNumber: number | null
   block: number
   status: SeatStatus
   isAdmin: boolean
@@ -82,7 +82,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
     s.status === 'vacant' &&
     s.block === transferBlock &&
     !(s.block === block && s.seat_number === seatNumber)
-  ).sort((a, b) => a.seat_number - b.seat_number)
+  ).sort((a, b) => (a.seat_number ?? 0) - (b.seat_number ?? 0))
 
   const handleRenew = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -307,7 +307,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                     : (
                       <div style={{ display:'flex', flexWrap:'wrap', gap:'6px', maxHeight:'160px', overflowY:'auto', padding:'4px' }}>
                         {vacantSeats.map(s => (
-                          <button key={s.seat_number} type="button" onClick={() => setTransferSeat(s.seat_number)}
+                          <button key={s.seat_number} type="button" onClick={() => setTransferSeat(s.seat_number ?? '')}
                             style={{ width:'44px', height:'36px', borderRadius:'8px', border:`2px solid ${transferSeat === s.seat_number ? 'rgba(34,197,94,0.7)' : 'rgba(34,197,94,0.3)'}`, cursor:'pointer', background: transferSeat === s.seat_number ? 'rgba(34,197,94,0.2)' : 'rgba(34,197,94,0.06)', color: transferSeat === s.seat_number ? '#4ade80' : '#6b7280', fontWeight:'700', fontSize:'11px', fontFamily:'inherit', transition:'all 0.1s' }}>
                             {s.seat_number}
                           </button>

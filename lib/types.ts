@@ -21,13 +21,16 @@ export interface Student {
   joining_date: string
   due_date: string
   block: Block
-  seat_number: number
+  seat_number: number | null
   is_active: boolean
+  is_flexible: boolean
   created_at: string
   updated_at: string
 }
 
-export interface SeatWithStudent extends Seat {
+export interface SeatWithStudent {
+  block: Block
+  seat_number: number | null
   student?: Student
   status: SeatStatus
 }
