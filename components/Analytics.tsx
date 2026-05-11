@@ -15,7 +15,11 @@ export default function Analytics() {
     })
   }, [])
 
-  const totalRevenue = students.reduce((sum, s) => sum + Number(s.amount), 0)
+  const totalRevenue     = students.reduce((sum, s) => sum + Number(s.amount), 0)
+  const depositsHeld     = students.filter(s => s.security_deposit_status === 'collected').reduce((sum, s) => sum + Number(s.security_deposit), 0)
+  const depositsForfeited = students.filter(s => s.security_deposit_status === 'forfeited').reduce((sum, s) => sum + Number(s.security_deposit), 0)
+  // Fetch all students including inactive to count refunded/forfeited
+  
 
   const byAccount: Record<string, { count: number; total: number }> = {}
   students.forEach(s => {
@@ -52,6 +56,8 @@ export default function Analytics() {
         {card('👥', 'Total Students', String(students.length), '#a5b4fc')}
         {card('🏠', 'Block 1', String(byBlock[1].length), '#f9a8d4')}
         {card('🏢', 'Block 2', String(byBlock[2].length), '#67e8f9')}
+      {depositsHeld > 0 && card('🔐', 'Deposits Held', `₹${depositsHeld.toLocaleString('en-IN')}`, '#fde047')}
+      {depositsForfeited > 0 && card('❌', 'Deposits Forfeited (Income)', `₹${depositsForfeited.toLocaleString('en-IN')}`, '#f87171')}
       </div>
 
       {/* Account breakdown */}

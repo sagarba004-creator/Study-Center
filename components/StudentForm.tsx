@@ -47,6 +47,8 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
     account:            student?.account || '',
     joining_date:       student?.joining_date || today,
     due_date:           student?.due_date || '',
+    security_deposit:        student?.security_deposit || 300,
+    security_deposit_status: student?.security_deposit_status || 'collected',
   })
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
 
     const payload: Record<string, unknown> = {
       ...form,
+      security_deposit: Number(form.security_deposit),
       amount:          Number(form.amount),
       duration_months: Number(form.duration_months),
       block,
@@ -178,6 +181,32 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
               {accounts.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </Field>
+
+          {/* Security Deposit */}
+          <div style={{ background:'rgba(251,191,36,0.08)', borderRadius:'12px', padding:'14px 16px', border:'1px solid rgba(251,191,36,0.2)' }}>
+            <div style={{ color:'#fde047', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'10px' }}>🔐 Security Deposit</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+              <div>
+                <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'6px' }}>Amount (₹)</label>
+                <input type="number" min={0} value={form.security_deposit} onChange={e => set('security_deposit', e.target.value)}
+                  style={inp} placeholder="300" />
+              </div>
+              <div>
+                <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'6px' }}>Status</label>
+                <select value={form.security_deposit_status} onChange={e => set('security_deposit_status', e.target.value)} style={{ ...sel }}>
+                  <option value="none">None</option>
+                  <option value="collected">✅ Collected</option>
+                  <option value="refunded">↩️ Refunded</option>
+                  <option value="forfeited">❌ Forfeited</option>
+                </select>
+              </div>
+            </div>
+            {form.security_deposit_status === 'collected' && Number(form.security_deposit) > 0 && (
+              <div style={{ color:'#94a3b8', fontSize:'11px', marginTop:'8px' }}>
+                💡 ₹{Number(form.security_deposit).toLocaleString('en-IN')} will be added to financials as liability
+              </div>
+            )}
+          </div>
 
           {error && (
             <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'10px', padding:'12px', color:'#f87171', fontSize:'13px' }}>

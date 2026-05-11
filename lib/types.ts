@@ -24,6 +24,8 @@ export interface Student {
   seat_number: number | null
   is_active: boolean
   is_flexible: boolean
+  security_deposit: number
+  security_deposit_status: 'none' | 'collected' | 'refunded' | 'forfeited'
   created_at: string
   updated_at: string
 }
