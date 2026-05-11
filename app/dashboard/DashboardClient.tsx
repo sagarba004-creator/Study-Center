@@ -103,11 +103,13 @@ export default function DashboardClient() {
   const b1Seats = buildSeats(1, BLOCK1_ALL)
   const b2Seats = buildSeats(2, BLOCK2_ALL)
 
-  const totalSeats = b1Seats.length + b2Seats.length
-  const occupied   = students.length
-  const vacant     = totalSeats - occupied
-  const overdue    = students.filter(s => getSeatStatus(s) === 'overdue').length
-  const dueSoon    = students.filter(s => getSeatStatus(s) === 'due-soon').length
+  const totalSeats    = b1Seats.length + b2Seats.length
+  const fixedStudents = students.filter(s => !s.is_flexible && s.seat_number)
+  const flexStudents  = students.filter(s => s.is_flexible || !s.seat_number)
+  const occupied      = fixedStudents.length
+  const vacant        = totalSeats - occupied
+  const overdue       = students.filter(s => getSeatStatus(s) === 'overdue').length
+  const dueSoon       = students.filter(s => getSeatStatus(s) === 'due-soon').length
 
   const handleSeatClick = (seat: SeatWithStudent) => {
     setSelectedSeat(seat); setShowForm(false); setEditingStudent(null)
@@ -154,9 +156,10 @@ export default function DashboardClient() {
 
         {/* Alert pills */}
         <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', flex:1, justifyContent:'center' }}>
-          {overdue > 0  && <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(239,68,68,0.15)', color:'#f87171', border:'1px solid rgba(239,68,68,0.25)' }}>🔴 {overdue} Overdue</span>}
-          {dueSoon > 0  && <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(251,191,36,0.15)', color:'#fde047', border:'1px solid rgba(251,191,36,0.25)' }}>🟡 {dueSoon} Due Soon</span>}
-          <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.25)' }}>👥 {occupied} Active</span>
+          {overdue > 0 && <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(239,68,68,0.15)', color:'#f87171', border:'1px solid rgba(239,68,68,0.25)' }}>🔴 {overdue} Overdue</span>}
+          {dueSoon > 0 && <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(251,191,36,0.15)', color:'#fde047', border:'1px solid rgba(251,191,36,0.25)' }}>🟡 {dueSoon} Due Soon</span>}
+          {flexStudents.length > 0 && <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(103,232,249,0.15)', color:'#67e8f9', border:'1px solid rgba(103,232,249,0.25)' }}>🔄 {flexStudents.length} Flexible</span>}
+          <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.25)' }}>🪑 {occupied} Fixed</span>
         </div>
 
         <button onClick={handleLogout} style={{ padding:'7px 14px', borderRadius:'9px', border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color:'#64748b', fontSize:'12px', fontWeight:'600', cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
@@ -174,10 +177,11 @@ export default function DashboardClient() {
           <>
             {/* STAT CARDS */}
             <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', marginBottom:'20px' }}>
-              <StatCard emoji="🪑" label="Total Seats" value={totalSeats} color="#a5b4fc" />
-              <StatCard emoji="✅" label="Occupied"    value={occupied}   color="#4ade80" sub={`${vacant} vacant`} />
-              {dueSoon > 0  && <StatCard emoji="⏰" label="Due Soon" value={dueSoon} color="#fde047" />}
-              {overdue > 0  && <StatCard emoji="🚨" label="Overdue"  value={overdue} color="#f87171" />}
+              <StatCard emoji="🪑" label="Total Seats"      value={totalSeats}          color="#a5b4fc" />
+              <StatCard emoji="✅" label="Fixed Seats Used"  value={occupied}            color="#4ade80" sub={`${vacant} vacant`} />
+              {flexStudents.length > 0 && <StatCard emoji="🔄" label="Flexible Students" value={flexStudents.length} color="#67e8f9" sub="no fixed seat" />}
+              {dueSoon > 0 && <StatCard emoji="⏰" label="Due Soon" value={dueSoon} color="#fde047" />}
+              {overdue > 0 && <StatCard emoji="🚨" label="Overdue"  value={overdue} color="#f87171" />}
             </div>
 
             {/* TABS */}
