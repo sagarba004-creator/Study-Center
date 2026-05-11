@@ -4,6 +4,65 @@ import { createClient } from '@/lib/supabase/client'
 import { Student } from '@/lib/types'
 import { format, startOfWeek } from 'date-fns'
 
+function ProjectionMonth({ label, students, estimated, isCurrentMonth }: {
+  label: string
+  students: Student[]
+  estimated: number
+  isCurrentMonth: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  if (students.length === 0) return (
+    <div style={{ padding:'12px 14px', borderRadius:'12px', background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.05)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+      <span style={{ color:'#334155', fontSize:'13px', fontWeight:'600' }}>{label}</span>
+      <span style={{ color:'#334155', fontSize:'12px' }}>No renewals due</span>
+    </div>
+  )
+  return (
+    <div>
+      <div onClick={() => setOpen(o => !o)} style={{ padding:'12px 14px', borderRadius:'12px', background: isCurrentMonth ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.03)', border:`1px solid ${isCurrentMonth ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'}`, cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div>
+          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+            <span style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700' }}>{label}</span>
+            {isCurrentMonth && <span style={{ padding:'2px 8px', borderRadius:'8px', fontSize:'10px', fontWeight:'700', background:'rgba(99,102,241,0.2)', color:'#a5b4fc' }}>This Month</span>}
+          </div>
+          <div style={{ color:'#64748b', fontSize:'11px', marginTop:'2px' }}>{students.length} seat{students.length !== 1 ? 's' : ''} expiring</div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+          <div style={{ textAlign:'right' }}>
+            <div style={{ color:'#a5b4fc', fontWeight:'800', fontSize:'15px', fontFamily:"'Sora', sans-serif" }}>~₹{estimated.toLocaleString('en-IN')}</div>
+            <div style={{ color:'#475569', fontSize:'10px' }}>if all renew</div>
+          </div>
+          <div style={{ color:'#64748b', fontSize:'18px', transition:'transform 0.2s', transform: open ? 'rotate(90deg)' : 'rotate(0)' }}>›</div>
+        </div>
+      </div>
+      {open && (
+        <div style={{ marginTop:'6px', marginLeft:'8px', display:'flex', flexDirection:'column', gap:'6px', animation:'fadeIn 0.2s ease' }}>
+          {students.sort((a,b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).map(s => (
+            <div key={s.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:'10px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                <div style={{ width:'32px', height:'32px', borderRadius:'8px', background:'rgba(99,102,241,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'13px', color:'#a5b4fc', flexShrink:0 }}>
+                  {s.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'600' }}>{s.name}</div>
+                  <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>
+                    {s.exam} · Block {s.block}{s.seat_number ? `, Seat ${s.seat_number}` : ' (Flexible)'}
+                    · Due {new Date(s.due_date).toLocaleDateString('en-IN', { day:'numeric', month:'short' })}
+                  </div>
+                </div>
+              </div>
+              <div style={{ textAlign:'right', flexShrink:0 }}>
+                <div style={{ color:'#a5b4fc', fontWeight:'700', fontSize:'13px' }}>~₹{Number(s.amount).toLocaleString('en-IN')}</div>
+                <div style={{ color:'#475569', fontSize:'10px' }}>last paid</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Analytics() {
   const [students, setStudents]       = useState<Student[]>([])
   const [oldStudents, setOldStudents] = useState<Student[]>([])
@@ -25,6 +84,33 @@ export default function Analytics() {
   const allStudents = [...students, ...oldStudents]
 
   const totalRevenue      = allStudents.reduce((s, st) => s + Number(st.amount), 0)
+
+  // Projected renewals — students whose due date falls in upcoming months
+  // Use their last paid amount as the estimated renewal amount
+  const today = new Date()
+  today.setHours(0,0,0,0)
+
+  const getMonthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+
+  // Build projection for next 3 months
+  const projectionMonths: { key: string; label: string; students: Student[]; estimated: number }[] = []
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(today)
+    d.setMonth(d.getMonth() + i)
+    const key   = getMonthKey(d)
+    const label = format(d, 'MMMM yyyy')
+    // Students whose due date falls in this month (active students only)
+    const due = students.filter(s => {
+      const dd = new Date(s.due_date)
+      return getMonthKey(dd) === key
+    })
+    projectionMonths.push({
+      key, label,
+      students: due,
+      estimated: due.reduce((sum, s) => sum + Number(s.amount), 0), // use last paid as estimate
+    })
+  }
+  const totalProjected = projectionMonths.reduce((s, m) => s + m.estimated, 0)
   const depositsHeld      = students.filter(s => s.security_deposit_status === 'collected').reduce((s, st) => s + Number(st.security_deposit), 0)
   const depositsForfeited = allStudents.filter(s => s.security_deposit_status === 'forfeited').reduce((s, st) => s + Number(st.security_deposit), 0)
   const depositsRefunded  = allStudents.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
@@ -258,6 +344,36 @@ export default function Analytics() {
             )
           })}
           {sortedKeys.length === 0 && <p style={{ color:'#475569', fontSize:'13px' }}>No payment data yet</p>}
+        </div>
+      </div>
+
+      {/* Projected Renewals */}
+      <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(99,102,241,0.2)' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'4px' }}>
+          <div style={{ fontWeight:'800', fontSize:'16px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif" }}>🔮 Projected Renewals</div>
+          <div style={{ padding:'4px 12px', borderRadius:'20px', background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.3)', color:'#a5b4fc', fontSize:'12px', fontWeight:'700' }}>
+            Next 3 months
+          </div>
+        </div>
+        <div style={{ color:'#64748b', fontSize:'12px', marginBottom:'16px' }}>
+          Estimated from students whose seat expires each month — based on their last paid amount
+        </div>
+
+        {/* Total projected banner */}
+        <div style={{ background:'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(236,72,153,0.1))', borderRadius:'12px', padding:'14px 18px', border:'1px solid rgba(99,102,241,0.25)', marginBottom:'14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ color:'#94a3b8', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'3px' }}>Total Projected (3 months)</div>
+            <div style={{ color:'#a5b4fc', fontSize:'24px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>
+              ₹{totalProjected.toLocaleString('en-IN')}
+            </div>
+          </div>
+          <div style={{ fontSize:'32px' }}>📅</div>
+        </div>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+          {projectionMonths.map(({ key, label, students: dueStudents, estimated }) => (
+            <ProjectionMonth key={key} label={label} students={dueStudents} estimated={estimated} isCurrentMonth={key === getMonthKey(today)} />
+          ))}
         </div>
       </div>
 
