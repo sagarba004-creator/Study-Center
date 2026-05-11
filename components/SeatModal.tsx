@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Props {
+  canEdit: boolean
+  canVacate: boolean
   student: Student | null
   seatNumber: number
   block: number
@@ -39,7 +41,7 @@ const inp: React.CSSProperties = {
   color:'#f1f5f9', fontSize:'13px', outline:'none', boxSizing:'border-box', fontFamily:'inherit',
 }
 
-export default function SeatModal({ student, seatNumber, block, status, isAdmin, onClose, onAddStudent, onEditStudent, onVacateSeat, onRefresh }: Props) {
+export default function SeatModal({ student, seatNumber, block, status, isAdmin, canEdit, canVacate, onClose, onAddStudent, onEditStudent, onVacateSeat, onRefresh }: Props) {
   const supabase = createClient()
   const cfg      = STATUS_CONFIG[status]
   const today    = new Date()
@@ -126,11 +128,15 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
             <div style={{ textAlign:'center', padding:'28px 0' }}>
               <div style={{ fontSize:'52px', marginBottom:'12px' }}>🪑</div>
               <p style={{ color:'#64748b', marginBottom:'24px', fontSize:'14px' }}>This seat is available</p>
-              <button onClick={onAddStudent} style={{
-                padding:'13px 32px', borderRadius:'12px', border:'none', cursor:'pointer',
-                background:'linear-gradient(135deg, #6366f1, #ec4899)', color:'white', fontSize:'14px', fontWeight:'700', fontFamily:'inherit',
-                boxShadow:'0 8px 20px rgba(99,102,241,0.35)'
-              }}>+ Assign Student</button>
+              {canEdit ? (
+                <button onClick={onAddStudent} style={{
+                  padding:'13px 32px', borderRadius:'12px', border:'none', cursor:'pointer',
+                  background:'linear-gradient(135deg, #6366f1, #ec4899)', color:'white', fontSize:'14px', fontWeight:'700', fontFamily:'inherit',
+                  boxShadow:'0 8px 20px rgba(99,102,241,0.35)'
+                }}>+ Assign Student</button>
+              ) : (
+                <div style={{ color:'#475569', fontSize:'13px' }}>View only — contact staff to assign</div>
+              )}
             </div>
           )}
 
@@ -168,8 +174,8 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                 <InfoBox icon="⏱️" label="Duration" value={`${student.duration_months} month${student.duration_months > 1 ? 's' : ''}`} />
               </div>
 
-              {/* Admin-only */}
-              {isAdmin && (
+              {/* Address visible to all who can edit (admin + staff) */}
+              {canEdit && (
                 <>
                   <InfoBox icon="📍" label="Address (Aadhaar)" value={student.address} />
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
@@ -181,23 +187,32 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
               )}
 
               {/* ACTION BUTTONS */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginTop:'6px' }}>
-                <button onClick={onEditStudent} style={{
-                  padding:'11px 8px', borderRadius:'10px', border:'1px solid rgba(99,102,241,0.35)', cursor:'pointer',
-                  background:'rgba(99,102,241,0.12)', color:'#a5b4fc', fontSize:'12px', fontWeight:'700', fontFamily:'inherit'
-                }}>✏️ Edit</button>
+              {canEdit && (
+                <div style={{ display:'grid', gridTemplateColumns: canVacate ? '1fr 1fr 1fr' : '1fr 1fr', gap:'8px', marginTop:'6px' }}>
+                  <button onClick={onEditStudent} style={{
+                    padding:'11px 8px', borderRadius:'10px', border:'1px solid rgba(99,102,241,0.35)', cursor:'pointer',
+                    background:'rgba(99,102,241,0.12)', color:'#a5b4fc', fontSize:'12px', fontWeight:'700', fontFamily:'inherit'
+                  }}>✏️ Edit</button>
 
-                <button onClick={() => setShowRenew(true)} style={{
-                  padding:'11px 8px', borderRadius:'10px', border:'none', cursor:'pointer',
-                  background:'linear-gradient(135deg,#6366f1,#ec4899)', color:'white', fontSize:'12px', fontWeight:'700', fontFamily:'inherit',
-                  boxShadow:'0 4px 12px rgba(99,102,241,0.35)'
-                }}>🔄 Renew</button>
+                  <button onClick={() => setShowRenew(true)} style={{
+                    padding:'11px 8px', borderRadius:'10px', border:'none', cursor:'pointer',
+                    background:'linear-gradient(135deg,#6366f1,#ec4899)', color:'white', fontSize:'12px', fontWeight:'700', fontFamily:'inherit',
+                    boxShadow:'0 4px 12px rgba(99,102,241,0.35)'
+                  }}>🔄 Renew</button>
 
-                <button onClick={() => setShowVacateConfirm(true)} style={{
-                  padding:'11px 8px', borderRadius:'10px', border:'1px solid rgba(239,68,68,0.35)', cursor:'pointer',
-                  background:'rgba(239,68,68,0.1)', color:'#f87171', fontSize:'12px', fontWeight:'700', fontFamily:'inherit'
-                }}>🚪 Vacate</button>
-              </div>
+                  {canVacate && (
+                    <button onClick={() => setShowVacateConfirm(true)} style={{
+                      padding:'11px 8px', borderRadius:'10px', border:'1px solid rgba(239,68,68,0.35)', cursor:'pointer',
+                      background:'rgba(239,68,68,0.1)', color:'#f87171', fontSize:'12px', fontWeight:'700', fontFamily:'inherit'
+                    }}>🚪 Vacate</button>
+                  )}
+                </div>
+              )}
+              {!canEdit && (
+                <div style={{ textAlign:'center', padding:'8px 0', color:'#475569', fontSize:'12px' }}>
+                  View only — contact admin to make changes
+                </div>
+              )}
             </div>
           )}
 
