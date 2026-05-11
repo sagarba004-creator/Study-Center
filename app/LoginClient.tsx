@@ -46,8 +46,8 @@ export default function LoginClient() {
             display:'flex', alignItems:'center', justifyContent:'center', fontSize:'32px',
             boxShadow:'0 20px 40px rgba(99,102,241,0.4)'
           }}>📚</div>
-          <h1 style={{ color:'#f1f5f9', fontSize:'32px', fontWeight:'800', margin:'0 0 6px', fontFamily:"'Sora', sans-serif", letterSpacing:'-0.5px' }}>StudyNest</h1>
-          <p style={{ color:'rgba(148,163,184,0.8)', fontSize:'14px' }}>Study Center Management System</p>
+          <h1 style={{ color:'#f1f5f9', fontSize:'32px', fontWeight:'800', margin:'0 0 6px', fontFamily:"'Sora', sans-serif", letterSpacing:'-0.5px' }}>Legacy Study Center</h1>
+          <p style={{ color:'rgba(148,163,184,0.8)', fontSize:'14px' }}>Solapur's Premier Study Destination</p>
         </div>
 
         {/* Card */}

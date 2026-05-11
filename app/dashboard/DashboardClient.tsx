@@ -153,7 +153,7 @@ export default function DashboardClient() {
         <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
           <div style={{ width:'38px', height:'38px', borderRadius:'11px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px', flexShrink:0 }}>📚</div>
           <div>
-            <div style={{ fontWeight:'800', fontSize:'15px', fontFamily:"'Sora', sans-serif", color:'#f1f5f9', lineHeight:1 }}>StudyNest</div>
+            <div style={{ fontWeight:'800', fontSize:'15px', fontFamily:"'Sora', sans-serif", color:'#f1f5f9', lineHeight:1 }}>Legacy Study Center</div>
             <span style={{ display:'inline-block', marginTop:'3px', padding:'2px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:'700', background:badge.bg, color:badge.color }}>
               {badge.label}
             </span>
@@ -277,12 +277,12 @@ export default function DashboardClient() {
                           <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600' }}>{new Date(student.joining_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
                           <div style={{ color:'#334155', fontSize:'10px', marginTop:'4px' }}>Vacated</div>
                           <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600' }}>{student.vacated_at ? new Date(student.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}</div>
-                          {isAdmin && student.security_deposit > 0 && (
+                          {canEdit && student.security_deposit > 0 && (
                             <div style={{ marginTop:'5px', padding:'2px 8px', borderRadius:'8px', fontSize:'10px', fontWeight:'700', color:depositColor, background:`${depositColor}18`, display:'inline-block' }}>
                               🔐 ₹{Number(student.security_deposit).toLocaleString('en-IN')} {depositLabel}
                             </div>
                           )}
-                          {isAdmin && <div style={{ color:'#475569', fontSize:'11px', fontWeight:'600', marginTop:'3px' }}>₹{Number(student.amount).toLocaleString('en-IN')}</div>}
+                          {canEdit && <div style={{ color:'#475569', fontSize:'11px', fontWeight:'600', marginTop:'3px' }}>₹{Number(student.amount).toLocaleString('en-IN')}</div>}
                         </div>
                       </div>
                     )
@@ -333,7 +333,7 @@ export default function DashboardClient() {
                           <span style={{ padding:'3px 9px', borderRadius:'10px', fontSize:'10px', fontWeight:'700', background:sb[st], color:sc[st] }}>{sl[st]}</span>
                           <div style={{ color:'#64748b', fontSize:'10px', marginTop:'4px' }}>Due: {new Date(student.due_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
                           {/* Only admin sees amount in list */}
-                          {isAdmin && <div style={{ color:'#6366f1', fontSize:'11px', fontWeight:'700', marginTop:'2px' }}>₹{Number(student.amount).toLocaleString('en-IN')}</div>}
+                          {canEdit && <div style={{ color:'#6366f1', fontSize:'11px', fontWeight:'700', marginTop:'2px' }}>₹{Number(student.amount).toLocaleString('en-IN')}</div>}
                         </div>
                       </div>
                     )

@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'StudyNest — Study Center',
-  description: 'Seat & student management',
+  title: 'Legacy Study Center — Study Center',
+  description: 'Legacy Study Center — Seat Management',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
