@@ -59,9 +59,23 @@ export default function DashboardClient() {
   const canVacate = role === 'admin' || role === 'staff'   // staff can also vacate
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { router.push('/'); return }
-      const r = user.user_metadata?.role
+    // Use getSession for the JWT which has the latest metadata
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { router.push('/'); return }
+
+      // Force refresh the session to get latest metadata from DB
+      const { data: refreshed } = await supabase.auth.refreshSession()
+      const user = refreshed?.session?.user || session.user
+
+      // Try multiple paths where Supabase stores role
+      const meta = user?.user_metadata || {}
+      const appMeta = user?.app_metadata || {}
+      const r = meta?.role || appMeta?.role || null
+
+      console.log('User metadata:', meta)
+      console.log('App metadata:', appMeta)
+      console.log('Role detected:', r)
+
       if (r === 'admin') setRole('admin')
       else if (r === 'staff') setRole('staff')
       else setRole('viewer')
