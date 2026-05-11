@@ -59,27 +59,28 @@ export default function DashboardClient() {
   const canVacate = role === 'admin' || role === 'staff'   // staff can also vacate
 
   useEffect(() => {
-    // Use getSession for the JWT which has the latest metadata
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const init = async () => {
+      // Check session exists
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/'); return }
 
-      // Force refresh the session to get latest metadata from DB
-      const { data: refreshed } = await supabase.auth.refreshSession()
-      const user = refreshed?.session?.user || session.user
+      // Read role directly from DB via RPC — most reliable method
+      const { data: roleData, error } = await supabase.rpc('get_my_role')
+      console.log('Role from DB:', roleData, error)
 
-      // Try multiple paths where Supabase stores role
-      const meta = user?.user_metadata || {}
-      const appMeta = user?.app_metadata || {}
-      const r = meta?.role || appMeta?.role || null
-
-      console.log('User metadata:', meta)
-      console.log('App metadata:', appMeta)
-      console.log('Role detected:', r)
-
-      if (r === 'admin') setRole('admin')
-      else if (r === 'staff') setRole('staff')
-      else setRole('viewer')
-    })
+      if (roleData === 'admin') setRole('admin')
+      else if (roleData === 'staff') setRole('staff')
+      else {
+        // Fallback: try user_metadata from session
+        const meta = session.user?.user_metadata || {}
+        const r = meta?.role
+        console.log('Fallback role from meta:', r)
+        if (r === 'admin') setRole('admin')
+        else if (r === 'staff') setRole('staff')
+        else setRole('viewer')
+      }
+    }
+    init()
   }, [])
 
   const loadStudents = useCallback(async () => {
