@@ -69,6 +69,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
   // Vacate state
   const [vacateLoading, setVacateLoading] = useState(false)
   const [depositAction, setDepositAction] = useState<'refunded' | 'forfeited'>('refunded')
+  const [vacateNotes, setVacateNotes] = useState('')
 
   const accounts = ['Account 1','Account 2','Cash','UPI','Other']
 
@@ -123,7 +124,12 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
   const handleVacate = async () => {
     if (!student) return
     setVacateLoading(true)
-    const updatePayload: Record<string, unknown> = { is_active: false }
+    const updatePayload: Record<string, unknown> = {
+      is_active: false,
+      vacated_at: new Date().toISOString(),
+      vacate_notes: vacateNotes || null,
+    }
+    // Only update deposit status if deposit was collected
     if (student.security_deposit > 0 && student.security_deposit_status === 'collected') {
       updatePayload.security_deposit_status = depositAction
     }
@@ -387,8 +393,16 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                 </div>
               )}
 
-              <div style={{ color:'#475569', fontSize:'12px', marginBottom:'16px', textAlign:'center' }}>
-                The seat will become available for a new student.
+              {/* Notes */}
+              <div style={{ marginBottom:'14px' }}>
+                <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'6px' }}>Vacate Reason / Notes (optional)</label>
+                <textarea value={vacateNotes} onChange={e => setVacateNotes(e.target.value)} rows={2}
+                  placeholder="e.g. Completed course, Moved city, Rule violation…"
+                  style={{ width:'100%', padding:'10px 12px', borderRadius:'10px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'13px', outline:'none', resize:'none', fontFamily:'inherit', boxSizing:'border-box' }} />
+              </div>
+
+              <div style={{ color:'#475569', fontSize:'12px', marginBottom:'14px', padding:'8px 10px', background:'rgba(255,255,255,0.03)', borderRadius:'8px' }}>
+                📋 Student record will be saved as history — not deleted
               </div>
 
               <div style={{ display:'flex', gap:'8px' }}>

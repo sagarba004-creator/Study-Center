@@ -194,16 +194,19 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
               <div>
                 <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'6px' }}>Status</label>
                 <select value={form.security_deposit_status} onChange={e => set('security_deposit_status', e.target.value)} style={{ ...sel }}>
-                  <option value="none">None</option>
+                  <option value="none">Not Collected</option>
                   <option value="collected">✅ Collected</option>
-                  <option value="refunded">↩️ Refunded</option>
-                  <option value="forfeited">❌ Forfeited</option>
                 </select>
               </div>
             </div>
             {form.security_deposit_status === 'collected' && Number(form.security_deposit) > 0 && (
               <div style={{ color:'#94a3b8', fontSize:'11px', marginTop:'8px' }}>
-                💡 ₹{Number(form.security_deposit).toLocaleString('en-IN')} will be added to financials as liability
+                💡 ₹{Number(form.security_deposit).toLocaleString('en-IN')} collected — refund/forfeit handled at vacating
+              </div>
+            )}
+            {form.security_deposit_status === 'none' && (
+              <div style={{ color:'#94a3b8', fontSize:'11px', marginTop:'8px' }}>
+                No deposit collected for this student
               </div>
             )}
           </div>

@@ -9,7 +9,7 @@ import SeatModal from '@/components/SeatModal'
 import StudentForm from '@/components/StudentForm'
 import Analytics from '@/components/Analytics'
 
-type Tab = 'block1' | 'block2' | 'students' | 'analytics'
+type Tab = 'block1' | 'block2' | 'students' | 'analytics' | 'history'
 type Role = 'admin' | 'staff' | 'viewer'
 
 const BLOCK1_ALL = [
@@ -48,6 +48,7 @@ export default function DashboardClient() {
   const [role, setRole]                         = useState<Role>('viewer')
   const [tab, setTab]                           = useState<Tab>('block1')
   const [students, setStudents]                 = useState<Student[]>([])
+  const [oldStudents, setOldStudents]           = useState<Student[]>([])
   const [loading, setLoading]                   = useState(true)
   const [search, setSearch]                     = useState('')
   const [selectedSeat, setSelectedSeat]         = useState<SeatWithStudent | null>(null)
@@ -85,8 +86,12 @@ export default function DashboardClient() {
   }, [])
 
   const loadStudents = useCallback(async () => {
-    const { data } = await supabase.from('students').select('*').eq('is_active', true)
-    if (data) setStudents(data as Student[])
+    const [active, old] = await Promise.all([
+      supabase.from('students').select('*').eq('is_active', true),
+      supabase.from('students').select('*').eq('is_active', false).order('vacated_at', { ascending: false }),
+    ])
+    if (active.data) setStudents(active.data as Student[])
+    if (old.data) setOldStudents(old.data as Student[])
     setLoading(false)
   }, [])
 
@@ -127,6 +132,7 @@ export default function DashboardClient() {
     { key:'block2',    label:'Block 2',   emoji:'🏢', allowedRoles:['admin','staff','viewer'] },
     { key:'students',  label:'Students',  emoji:'👥', allowedRoles:['admin','staff','viewer'] },
     { key:'analytics', label:'Analytics', emoji:'📊', allowedRoles:['admin'] },
+    { key:'history',   label:'Old Students', emoji:'🗂️', allowedRoles:['admin','staff','viewer'] },
   ]
 
   const sBtn = (active: boolean): React.CSSProperties => ({
@@ -240,6 +246,51 @@ export default function DashboardClient() {
             {/* ANALYTICS — admin only */}
             {tab === 'analytics' && isAdmin && <Analytics />}
 
+            {/* OLD STUDENTS HISTORY */}
+            {tab === 'history' && (
+              <div>
+                <div style={{ marginBottom:'14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ color:'#64748b', fontSize:'13px', fontWeight:'600' }}>🗂️ {oldStudents.length} past student{oldStudents.length !== 1 ? 's' : ''}</div>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                  {oldStudents.length === 0 && (
+                    <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontSize:'14px' }}>No vacated students yet</div>
+                  )}
+                  {oldStudents.map(student => {
+                    const depositColor = student.security_deposit_status === 'forfeited' ? '#f87171' : student.security_deposit_status === 'refunded' ? '#a5b4fc' : '#94a3b8'
+                    const depositLabel = student.security_deposit_status === 'forfeited' ? '❌ Forfeited' : student.security_deposit_status === 'refunded' ? '↩️ Refunded' : student.security_deposit_status === 'collected' ? '✅ Held' : '—'
+                    return (
+                      <div key={student.id} style={{ background:'rgba(255,255,255,0.03)', borderRadius:'14px', padding:'14px 16px', border:'1.5px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'12px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'11px' }}>
+                          <div style={{ width:'42px', height:'42px', borderRadius:'12px', background:'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'17px', color:'#64748b', flexShrink:0 }}>
+                            {student.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight:'700', color:'#94a3b8', fontSize:'14px' }}>{student.name}</div>
+                            <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.college}</div>
+                            <div style={{ color:'#334155', fontSize:'10px', marginTop:'1px' }}>Block {student.block}{student.seat_number ? ` · Seat ${student.seat_number}` : ' · Flexible'}</div>
+                            {student.vacate_notes && <div style={{ color:'#475569', fontSize:'11px', marginTop:'4px', fontStyle:'italic' }}>"{student.vacate_notes}"</div>}
+                          </div>
+                        </div>
+                        <div style={{ textAlign:'right', flexShrink:0 }}>
+                          <div style={{ color:'#475569', fontSize:'10px' }}>Joined</div>
+                          <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600' }}>{new Date(student.joining_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
+                          <div style={{ color:'#334155', fontSize:'10px', marginTop:'4px' }}>Vacated</div>
+                          <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600' }}>{student.vacated_at ? new Date(student.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}</div>
+                          {isAdmin && student.security_deposit > 0 && (
+                            <div style={{ marginTop:'5px', padding:'2px 8px', borderRadius:'8px', fontSize:'10px', fontWeight:'700', color:depositColor, background:`${depositColor}18`, display:'inline-block' }}>
+                              🔐 ₹{Number(student.security_deposit).toLocaleString('en-IN')} {depositLabel}
+                            </div>
+                          )}
+                          {isAdmin && <div style={{ color:'#475569', fontSize:'11px', fontWeight:'600', marginTop:'3px' }}>₹{Number(student.amount).toLocaleString('en-IN')}</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* STUDENTS LIST */}
             {tab === 'students' && (
               <div>
@@ -293,6 +344,7 @@ export default function DashboardClient() {
           </>
         )}
       </main>
+
 
       {/* MODALS */}
       {selectedSeat && !showForm && (
