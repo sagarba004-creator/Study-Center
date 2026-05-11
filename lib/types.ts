@@ -26,6 +26,8 @@ export interface Student {
   is_flexible: boolean
   security_deposit: number
   security_deposit_status: 'none' | 'collected' | 'refunded' | 'forfeited'
+  vacated_at: string | null
+  vacate_notes: string | null
   created_at: string
   updated_at: string
 }
