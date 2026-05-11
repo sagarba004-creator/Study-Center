@@ -52,6 +52,7 @@ export default function DashboardClient() {
   const [search, setSearch]                     = useState('')
   const [selectedSeat, setSelectedSeat]         = useState<SeatWithStudent | null>(null)
   const [showForm, setShowForm]                 = useState(false)
+  const [showFlexibleForm, setShowFlexibleForm] = useState(false)
   const [editingStudent, setEditingStudent]     = useState<Student | null>(null)
 
   const isAdmin   = role === 'admin'
@@ -188,6 +189,19 @@ export default function DashboardClient() {
               ))}
             </div>
 
+            {/* FLEXIBLE STUDENT BUTTON */}
+            {canEdit && (
+              <div style={{ marginBottom:'14px' }}>
+                <button onClick={() => setShowFlexibleForm(true)} style={{
+                  padding:'9px 18px', borderRadius:'10px', border:'1.5px solid rgba(14,116,144,0.5)',
+                  background:'rgba(14,116,144,0.12)', color:'#67e8f9', fontSize:'13px', fontWeight:'700',
+                  cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:'7px'
+                }}>
+                  🔄 Add Flexible Student <span style={{ color:'#475569', fontWeight:'500', fontSize:'12px' }}>(no fixed seat)</span>
+                </button>
+              </div>
+            )}
+
             {/* LEGEND */}
             {(tab === 'block1' || tab === 'block2') && (
               <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'14px' }}>
@@ -255,7 +269,9 @@ export default function DashboardClient() {
                           <div>
                             <div style={{ fontWeight:'700', color:'#f1f5f9', fontSize:'14px' }}>{student.name}</div>
                             <div style={{ color:'#64748b', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.college}</div>
-                            <div style={{ color:'#475569', fontSize:'10px', marginTop:'1px' }}>Block {student.block} · Seat {student.seat_number}</div>
+                            <div style={{ color:'#475569', fontSize:'10px', marginTop:'1px' }}>
+                              Block {student.block} · {student.seat_number ? `Seat ${student.seat_number}` : <span style={{ color:'#67e8f9' }}>🔄 Flexible</span>}
+                            </div>
                           </div>
                         </div>
                         <div style={{ textAlign:'right', flexShrink:0 }}>
@@ -284,6 +300,7 @@ export default function DashboardClient() {
           isAdmin={isAdmin}
           canEdit={canEdit}
           canVacate={canVacate}
+          allSeats={[...b1Seats, ...b2Seats]}
           onClose={() => setSelectedSeat(null)}
           onAddStudent={() => { setEditingStudent(null); setShowForm(true) }}
           onEditStudent={() => { setEditingStudent(selectedSeat.student || null); setShowForm(true) }}
@@ -298,6 +315,15 @@ export default function DashboardClient() {
           student={editingStudent}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); setSelectedSeat(null); loadStudents() }}
+        />
+      )}
+      {showFlexibleForm && (
+        <StudentForm
+          block={1}
+          seatNumber={null}
+          isFlexible={true}
+          onClose={() => setShowFlexibleForm(false)}
+          onSaved={() => { setShowFlexibleForm(false); loadStudents() }}
         />
       )}
 
