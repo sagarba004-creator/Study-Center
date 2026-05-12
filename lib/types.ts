@@ -27,6 +27,9 @@ export interface Student {
   security_deposit: number
   security_deposit_status: 'none' | 'collected' | 'refunded' | 'forfeited'
   phone: string | null
+  refund_amount: number
+  refund_account: string | null
+  refund_date: string | null
   vacated_at: string | null
   vacate_notes: string | null
   created_at: string

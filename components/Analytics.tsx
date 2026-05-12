@@ -149,15 +149,19 @@ function ProjectionMonth({ label, students, estimated, isCurrentMonth }: {
 }
 
 // ── TxRow ────────────────────────────────────────────────────────────────────
-function TxRow({ student, type }: { student: Student; type: 'credit' | 'debit' | 'deposit' | 'forfeit' }) {
+function TxRow({ student, type }: { student: Student; type: 'credit' | 'debit' | 'deposit' | 'forfeit' | 'feerefund' }) {
   const colors = {
-    credit:  { color:'#4ade80', label:'Fee Credit',        prefix:'+' },
-    debit:   { color:'#f87171', label:'Deposit Refund',    prefix:'-' },
-    deposit: { color:'#fde047', label:'Deposit Collected', prefix:'+' },
-    forfeit: { color:'#fb923c', label:'Deposit Forfeited', prefix:'+' },
+    credit:     { color:'#4ade80', label:'Fee Credit',        prefix:'+' },
+    debit:      { color:'#f87171', label:'Deposit Refund',    prefix:'-' },
+    deposit:    { color:'#fde047', label:'Deposit Collected', prefix:'+' },
+    forfeit:    { color:'#fb923c', label:'Deposit Forfeited', prefix:'+' },
+    feerefund:  { color:'#f87171', label:'Fee Refund',        prefix:'-' },
   }
   const c      = colors[type]
-  const amount = type === 'credit' ? Number(student.amount) : Number(student.security_deposit)
+  const amount = type === 'credit' ? Number(student.amount)
+    : type === 'feerefund' ? Number(student.refund_amount)
+    : Number(student.security_deposit)
+  const account = type === 'feerefund' ? (student.refund_account || '') : ''
   const date   = (type === 'debit' || type === 'forfeit') && student.vacated_at
     ? new Date(student.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
     : new Date(student.payment_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
@@ -165,12 +169,12 @@ function TxRow({ student, type }: { student: Student; type: 'credit' | 'debit' |
     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:'10px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
       <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
         <div style={{ width:'32px', height:'32px', borderRadius:'8px', background:`${c.color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', flexShrink:0 }}>
-          {type === 'credit' ? '💳' : type === 'debit' ? '↩️' : type === 'deposit' ? '🔐' : '❌'}
+          {type === 'credit' ? '💳' : type === 'debit' ? '↩️' : type === 'deposit' ? '🔐' : type === 'feerefund' ? '💸' : '❌'}
         </div>
         <div>
           <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'600' }}>{student.name}</div>
           <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>
-            {c.label} · Block {student.block}{student.seat_number ? `, Seat ${student.seat_number}` : ' (Flexible)'} · {date}
+            {c.label}{account ? ` · ${account}` : ''} · Block {student.block}{student.seat_number ? `, Seat ${student.seat_number}` : ' (Flexible)'} · {date}
           </div>
         </div>
       </div>
@@ -204,6 +208,8 @@ export default function Analytics() {
 
   const allStudents       = [...students, ...oldStudents]
   const totalRevenue      = allStudents.reduce((s, st) => s + Number(st.amount), 0)
+  const totalFeeRefunds   = allStudents.reduce((s, st) => s + Number(st.refund_amount || 0), 0)
+  const netRevenue        = totalRevenue - totalFeeRefunds
   const depositsHeld      = students.filter(s => s.security_deposit_status === 'collected').reduce((s, st) => s + Number(st.security_deposit), 0)
   const depositsForfeited = allStudents.filter(s => s.security_deposit_status === 'forfeited').reduce((s, st) => s + Number(st.security_deposit), 0)
   const depositsRefunded  = allStudents.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
@@ -252,15 +258,17 @@ export default function Analytics() {
   const totalProjected = projectionMonths.reduce((s, m) => s + m.estimated, 0)
 
   const getAccountTxns = (sts: Student[]) => {
-    const txns: { student: Student; type: 'credit'|'debit'|'deposit'|'forfeit'; date: Date }[] = []
+    const txns: { student: Student; type: 'credit'|'debit'|'deposit'|'forfeit'|'feerefund'; date: Date }[] = []
     sts.forEach(s => {
       txns.push({ student:s, type:'credit',  date:new Date(s.payment_date) })
       if (s.security_deposit > 0 && s.security_deposit_status === 'collected' && s.is_active)
         txns.push({ student:s, type:'deposit', date:new Date(s.payment_date) })
       if (s.security_deposit > 0 && s.security_deposit_status === 'refunded')
-        txns.push({ student:s, type:'debit',   date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
+        txns.push({ student:s, type:'debit',     date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
       if (s.security_deposit > 0 && s.security_deposit_status === 'forfeited')
-        txns.push({ student:s, type:'forfeit', date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
+        txns.push({ student:s, type:'forfeit',   date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
+      if (Number(s.refund_amount) > 0)
+        txns.push({ student:s, type:'feerefund', date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
     })
     return txns.sort((a,b) => b.date.getTime() - a.date.getTime())
   }
@@ -280,6 +288,8 @@ export default function Analytics() {
       {/* Summary cards */}
       <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
         {card('💰', 'Total Fees',         `₹${totalRevenue.toLocaleString('en-IN')}`,      '#4ade80')}
+        {totalFeeRefunds > 0 && card('↩️', 'Fee Refunds',  `₹${totalFeeRefunds.toLocaleString('en-IN')}`, '#f87171', 'outflow')}
+        {totalFeeRefunds > 0 && card('💵', 'Net Revenue',  `₹${netRevenue.toLocaleString('en-IN')}`,      '#4ade80', 'after refunds')}
         {card('👥', 'Active Students',    String(students.length),                          '#a5b4fc')}
         {depositsHeld > 0      && card('🔐', 'Deposits Held',     `₹${depositsHeld.toLocaleString('en-IN')}`,      '#fde047', 'liability')}
         {depositsForfeited > 0 && card('❌', 'Deposits Forfeited', `₹${depositsForfeited.toLocaleString('en-IN')}`, '#fb923c', 'income')}
@@ -376,7 +386,7 @@ export default function Analytics() {
             const label   = view === 'month'
               ? format(new Date(key + '-01'), 'MMMM yyyy')
               : `Week of ${format(new Date(key), 'dd MMM yyyy')}`
-            const txns: { student: Student; type: 'credit'|'debit'|'deposit'|'forfeit'; date: Date }[] = []
+            const txns: { student: Student; type: 'credit'|'debit'|'deposit'|'forfeit'|'feerefund'; date: Date }[] = []
             grp.forEach(s => {
               txns.push({ student:s, type:'credit',  date:new Date(s.payment_date) })
               if (s.security_deposit > 0 && s.security_deposit_status === 'collected' && s.is_active)

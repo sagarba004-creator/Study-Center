@@ -67,9 +67,13 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
   const [transferError, setTransferError]   = useState('')
 
   // Vacate state
-  const [vacateLoading, setVacateLoading] = useState(false)
-  const [depositAction, setDepositAction] = useState<'refunded' | 'forfeited'>('refunded')
-  const [vacateNotes, setVacateNotes] = useState('')
+  const [vacateLoading, setVacateLoading]   = useState(false)
+  const [depositAction, setDepositAction]   = useState<'refunded' | 'forfeited'>('refunded')
+  const [vacateNotes, setVacateNotes]       = useState('')
+  const [refundFees, setRefundFees]         = useState(false)
+  const [refundAmount, setRefundAmount]     = useState('')
+  const [refundAccount, setRefundAccount]   = useState('Account 1')
+  const [depositAccount, setDepositAccount] = useState('Account 1')
 
   const accounts = ['Account 1','Account 2','Cash','UPI','Other']
 
@@ -124,12 +128,19 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
   const handleVacate = async () => {
     if (!student) return
     setVacateLoading(true)
+    const now = new Date().toISOString()
     const updatePayload: Record<string, unknown> = {
-      is_active: false,
-      vacated_at: new Date().toISOString(),
+      is_active:    false,
+      vacated_at:   now,
       vacate_notes: vacateNotes || null,
+      refund_amount:  refundFees ? Number(refundAmount) : 0,
+      refund_account: refundFees || (student.security_deposit > 0 && depositAction === 'refunded')
+        ? refundAccount
+        : null,
+      refund_date: refundFees || (student.security_deposit > 0 && depositAction === 'refunded')
+        ? now
+        : null,
     }
-    // Only update deposit status if deposit was collected
     if (student.security_deposit > 0 && student.security_deposit_status === 'collected') {
       updatePayload.security_deposit_status = depositAction
     }
@@ -356,64 +367,122 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
           )}
 
           {/* ── VACATE CONFIRM ── */}
-          {panel === 'vacate' && student && (
-            <div className="animate-fadeIn" style={{ padding:'4px 0' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
-                <button onClick={() => setPanel('main')} style={{ background:'rgba(255,255,255,0.07)', border:'none', borderRadius:'8px', width:'30px', height:'30px', cursor:'pointer', color:'#94a3b8', fontSize:'16px' }}>←</button>
-                <div style={{ fontWeight:'800', fontSize:'16px', color:'#f1f5f9', fontFamily:"'Sora', sans-serif" }}>🚪 Vacate Seat {seatNumber}</div>
-              </div>
-
-              <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px 14px', border:'1px solid rgba(255,255,255,0.07)', marginBottom:'14px' }}>
-                <div style={{ color:'#64748b', fontSize:'11px', marginBottom:'2px' }}>Vacating seat for</div>
-                <div style={{ color:'#f1f5f9', fontWeight:'700', fontSize:'15px' }}>{student.name}</div>
-              </div>
-
-              {/* Security deposit section — only show if deposit was collected */}
-              {student.security_deposit > 0 && student.security_deposit_status === 'collected' && (
-                <div style={{ background:'rgba(251,191,36,0.08)', borderRadius:'12px', padding:'14px 16px', border:'1px solid rgba(251,191,36,0.2)', marginBottom:'14px' }}>
-                  <div style={{ color:'#fde047', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'10px' }}>
-                    🔐 Security Deposit — ₹{Number(student.security_deposit).toLocaleString('en-IN')}
-                  </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-                    <button type="button" onClick={() => setDepositAction('refunded')}
-                      style={{ padding:'12px 8px', borderRadius:'10px', border:`2px solid ${depositAction === 'refunded' ? 'rgba(74,222,128,0.6)' : 'rgba(255,255,255,0.1)'}`, cursor:'pointer', background: depositAction === 'refunded' ? 'rgba(74,222,128,0.12)' : 'transparent', color: depositAction === 'refunded' ? '#4ade80' : '#64748b', fontWeight:'700', fontSize:'12px', fontFamily:'inherit', transition:'all 0.15s' }}>
-                      ↩️ Refund<br/>
-                      <span style={{ fontSize:'10px', fontWeight:'500', opacity:0.7 }}>Return ₹{Number(student.security_deposit).toLocaleString('en-IN')}</span>
-                    </button>
-                    <button type="button" onClick={() => setDepositAction('forfeited')}
-                      style={{ padding:'12px 8px', borderRadius:'10px', border:`2px solid ${depositAction === 'forfeited' ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.1)'}`, cursor:'pointer', background: depositAction === 'forfeited' ? 'rgba(239,68,68,0.12)' : 'transparent', color: depositAction === 'forfeited' ? '#f87171' : '#64748b', fontWeight:'700', fontSize:'12px', fontFamily:'inherit', transition:'all 0.15s' }}>
-                      ❌ Forfeit<br/>
-                      <span style={{ fontSize:'10px', fontWeight:'500', opacity:0.7 }}>Keep ₹{Number(student.security_deposit).toLocaleString('en-IN')}</span>
-                    </button>
-                  </div>
-                  <div style={{ color:'#94a3b8', fontSize:'11px', marginTop:'10px', padding:'8px 10px', background:'rgba(255,255,255,0.04)', borderRadius:'8px' }}>
-                    {depositAction === 'refunded'
-                      ? '↩️ Deposit will be subtracted from financials (returned to student)'
-                      : '❌ Deposit will remain in financials (kept by center)'}
-                  </div>
+          {panel === 'vacate' && student && (() => {
+            const accounts  = ['Account 1','Account 2','Cash','UPI','Other']
+            const isEarly   = daysLeft !== null && daysLeft > 0
+            const totalRefund = (refundFees ? Number(refundAmount) : 0) +
+              (student.security_deposit > 0 && depositAction === 'refunded' ? Number(student.security_deposit) : 0)
+            return (
+              <div className="animate-fadeIn" style={{ padding:'4px 0', display:'flex', flexDirection:'column', gap:'12px' }}>
+                {/* Back + title */}
+                <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                  <button onClick={() => setPanel('main')} style={{ background:'rgba(255,255,255,0.07)', border:'none', borderRadius:'8px', width:'30px', height:'30px', cursor:'pointer', color:'#94a3b8', fontSize:'16px', flexShrink:0 }}>←</button>
+                  <div style={{ fontWeight:'800', fontSize:'16px', color:'#f1f5f9', fontFamily:"'Sora', sans-serif" }}>🚪 Vacate Seat {seatNumber}</div>
                 </div>
-              )}
 
-              {/* Notes */}
-              <div style={{ marginBottom:'14px' }}>
-                <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'6px' }}>Vacate Reason / Notes (optional)</label>
-                <textarea value={vacateNotes} onChange={e => setVacateNotes(e.target.value)} rows={2}
-                  placeholder="e.g. Completed course, Moved city, Rule violation…"
-                  style={{ width:'100%', padding:'10px 12px', borderRadius:'10px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'13px', outline:'none', resize:'none', fontFamily:'inherit', boxSizing:'border-box' }} />
-              </div>
+                {/* Student info */}
+                <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px 14px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                  <div style={{ color:'#64748b', fontSize:'11px', marginBottom:'2px' }}>Vacating seat for</div>
+                  <div style={{ color:'#f1f5f9', fontWeight:'700', fontSize:'15px' }}>{student.name}</div>
+                  {isEarly && (
+                    <div style={{ marginTop:'6px', padding:'6px 8px', background:'rgba(251,191,36,0.1)', borderRadius:'7px', border:'1px solid rgba(251,191,36,0.2)', color:'#fde047', fontSize:'11px', fontWeight:'600' }}>
+                      ⚠️ Early vacate — {daysLeft} days remaining before due date
+                    </div>
+                  )}
+                </div>
 
-              <div style={{ color:'#475569', fontSize:'12px', marginBottom:'14px', padding:'8px 10px', background:'rgba(255,255,255,0.03)', borderRadius:'8px' }}>
-                📋 Student record will be saved as history — not deleted
-              </div>
+                {/* ── SECURITY DEPOSIT ── */}
+                {student.security_deposit > 0 && student.security_deposit_status === 'collected' && (
+                  <div style={{ background:'rgba(251,191,36,0.07)', borderRadius:'12px', padding:'14px', border:'1px solid rgba(251,191,36,0.2)' }}>
+                    <div style={{ color:'#fde047', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'10px' }}>
+                      🔐 Security Deposit — ₹{Number(student.security_deposit).toLocaleString('en-IN')}
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'10px' }}>
+                      <button type="button" onClick={() => setDepositAction('refunded')}
+                        style={{ padding:'10px 6px', borderRadius:'10px', border:`2px solid ${depositAction === 'refunded' ? 'rgba(74,222,128,0.6)' : 'rgba(255,255,255,0.1)'}`, cursor:'pointer', background: depositAction === 'refunded' ? 'rgba(74,222,128,0.12)' : 'transparent', color: depositAction === 'refunded' ? '#4ade80' : '#64748b', fontWeight:'700', fontSize:'12px', fontFamily:'inherit' }}>
+                        ↩️ Refund<br/><span style={{ fontSize:'10px', opacity:0.7 }}>₹{Number(student.security_deposit).toLocaleString('en-IN')} out</span>
+                      </button>
+                      <button type="button" onClick={() => setDepositAction('forfeited')}
+                        style={{ padding:'10px 6px', borderRadius:'10px', border:`2px solid ${depositAction === 'forfeited' ? 'rgba(239,68,68,0.6)' : 'rgba(255,255,255,0.1)'}`, cursor:'pointer', background: depositAction === 'forfeited' ? 'rgba(239,68,68,0.12)' : 'transparent', color: depositAction === 'forfeited' ? '#f87171' : '#64748b', fontWeight:'700', fontSize:'12px', fontFamily:'inherit' }}>
+                        ❌ Forfeit<br/><span style={{ fontSize:'10px', opacity:0.7 }}>Keep it</span>
+                      </button>
+                    </div>
+                    {depositAction === 'refunded' && (
+                      <div>
+                        <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Refund from Account</label>
+                        <select value={depositAccount} onChange={e => setDepositAccount(e.target.value)}
+                          style={{ width:'100%', padding:'9px 12px', borderRadius:'9px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'12px', outline:'none', fontFamily:'inherit', cursor:'pointer' }}>
+                          {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={() => setPanel('main')} style={{ flex:1, padding:'12px', borderRadius:'10px', border:'1.5px solid rgba(255,255,255,0.1)', background:'transparent', color:'#94a3b8', fontSize:'13px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>Cancel</button>
-                <button onClick={handleVacate} disabled={vacateLoading} style={{ flex:1, padding:'12px', borderRadius:'10px', border:'none', cursor:'pointer', background:'rgba(239,68,68,0.8)', color:'white', fontSize:'13px', fontWeight:'800', opacity: vacateLoading ? 0.7 : 1, fontFamily:'inherit' }}>
-                  {vacateLoading ? 'Vacating…' : '🚪 Confirm Vacate'}
-                </button>
+                {/* ── EARLY VACATE FEE REFUND ── */}
+                {isEarly && (
+                  <div style={{ background:'rgba(99,102,241,0.07)', borderRadius:'12px', padding:'14px', border:'1px solid rgba(99,102,241,0.2)' }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+                      <div style={{ color:'#a5b4fc', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em' }}>
+                        💰 Fee Refund (Early Vacate)
+                      </div>
+                      <button type="button" onClick={() => setRefundFees(r => !r)}
+                        style={{ padding:'4px 12px', borderRadius:'20px', border:`1.5px solid ${refundFees ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.15)'}`, background: refundFees ? 'rgba(99,102,241,0.2)' : 'transparent', color: refundFees ? '#a5b4fc' : '#64748b', fontSize:'11px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>
+                        {refundFees ? '✅ Yes' : 'No'}
+                      </button>
+                    </div>
+                    {refundFees && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                        <div>
+                          <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Refund Amount (₹)</label>
+                          <input type="number" min={0} max={Number(student.amount)} value={refundAmount}
+                            onChange={e => setRefundAmount(e.target.value)} placeholder="0"
+                            style={{ width:'100%', padding:'9px 12px', borderRadius:'9px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'13px', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }} />
+                          <div style={{ color:'#475569', fontSize:'10px', marginTop:'4px' }}>Original fee paid: ₹{Number(student.amount).toLocaleString('en-IN')}</div>
+                        </div>
+                        <div>
+                          <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Refund from Account</label>
+                          <select value={refundAccount} onChange={e => setRefundAccount(e.target.value)}
+                            style={{ width:'100%', padding:'9px 12px', borderRadius:'9px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'12px', outline:'none', fontFamily:'inherit', cursor:'pointer' }}>
+                            {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── TOTAL OUTFLOW SUMMARY ── */}
+                {totalRefund > 0 && (
+                  <div style={{ background:'rgba(239,68,68,0.08)', borderRadius:'10px', padding:'12px 14px', border:'1px solid rgba(239,68,68,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div style={{ color:'#94a3b8', fontSize:'12px', fontWeight:'600' }}>Total outflow</div>
+                    <div style={{ color:'#f87171', fontSize:'18px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>
+                      -₹{totalRefund.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div>
+                  <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Reason / Notes (optional)</label>
+                  <textarea value={vacateNotes} onChange={e => setVacateNotes(e.target.value)} rows={2}
+                    placeholder="e.g. Completed course, Moved city…"
+                    style={{ width:'100%', padding:'9px 12px', borderRadius:'9px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'13px', outline:'none', resize:'none', fontFamily:'inherit', boxSizing:'border-box' }} />
+                </div>
+
+                <div style={{ color:'#475569', fontSize:'11px', padding:'8px 10px', background:'rgba(255,255,255,0.03)', borderRadius:'8px' }}>
+                  📋 Student record saved as history — not deleted
+                </div>
+
+                <div style={{ display:'flex', gap:'8px' }}>
+                  <button onClick={() => setPanel('main')} style={{ flex:1, padding:'12px', borderRadius:'10px', border:'1.5px solid rgba(255,255,255,0.1)', background:'transparent', color:'#94a3b8', fontSize:'13px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>Cancel</button>
+                  <button onClick={handleVacate} disabled={vacateLoading} style={{ flex:1, padding:'12px', borderRadius:'10px', border:'none', cursor:'pointer', background:'rgba(239,68,68,0.8)', color:'white', fontSize:'13px', fontWeight:'800', opacity: vacateLoading ? 0.7 : 1, fontFamily:'inherit' }}>
+                    {vacateLoading ? 'Vacating…' : '🚪 Confirm'}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
         </div>
       </div>

@@ -398,6 +398,9 @@ export default function DashboardClient() {
                     <InfoBox icon="💰" label="Amount"       value={`₹${Number(oldSelectedStudent.amount).toLocaleString('en-IN')}`} />
                     <InfoBox icon="🏦" label="Account"      value={oldSelectedStudent.account} />
                     <InfoBox icon="📅" label="Payment Date" value={new Date(oldSelectedStudent.payment_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })} />
+                    {Number(oldSelectedStudent.refund_amount) > 0 && (
+                      <InfoBox icon="💸" label={`Fee Refund (${oldSelectedStudent.refund_account || ''})`} value={`-₹${Number(oldSelectedStudent.refund_amount).toLocaleString('en-IN')}`} />
+                    )}
                     {oldSelectedStudent.security_deposit > 0 && (
                       <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
                         <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>🔐 Deposit</div>
