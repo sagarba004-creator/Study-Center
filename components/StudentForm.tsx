@@ -255,8 +255,8 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
             <input required value={form.name} onChange={e => set('name', e.target.value)} placeholder="Student full name" style={inp} />
           </Field>
 
-          <Field label="Phone Number">
-            <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)}
+          <Field label="Phone Number *">
+            <input type="tel" required value={form.phone} onChange={e => set('phone', e.target.value)}
               placeholder="10-digit mobile number" maxLength={10}
               style={inp} />
           </Field>

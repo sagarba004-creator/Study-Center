@@ -54,6 +54,7 @@ export default function DashboardClient() {
   const [selectedSeat, setSelectedSeat]         = useState<SeatWithStudent | null>(null)
   const [showForm, setShowForm]                 = useState(false)
   const [showFlexibleForm, setShowFlexibleForm] = useState(false)
+  const [oldSelectedStudent, setOldSelectedStudent] = useState<Student | null>(null)
   const [editingStudent, setEditingStudent]     = useState<Student | null>(null)
 
   const isAdmin   = role === 'admin'
@@ -261,7 +262,7 @@ export default function DashboardClient() {
                     const depositColor = student.security_deposit_status === 'forfeited' ? '#f87171' : student.security_deposit_status === 'refunded' ? '#a5b4fc' : '#94a3b8'
                     const depositLabel = student.security_deposit_status === 'forfeited' ? '❌ Forfeited' : student.security_deposit_status === 'refunded' ? '↩️ Refunded' : student.security_deposit_status === 'collected' ? '✅ Held' : '—'
                     return (
-                      <div key={student.id} style={{ background:'rgba(255,255,255,0.03)', borderRadius:'14px', padding:'14px 16px', border:'1.5px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'12px' }}>
+                      <div key={student.id} onClick={() => setOldSelectedStudent(student)} style={{ background:'rgba(255,255,255,0.03)', borderRadius:'14px', padding:'14px 16px', border:'1.5px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'12px', cursor:'pointer', transition:'border-color 0.2s' }} onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)')} onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
                         <div style={{ display:'flex', alignItems:'center', gap:'11px' }}>
                           <div style={{ width:'42px', height:'42px', borderRadius:'12px', background:'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'17px', color:'#64748b', flexShrink:0 }}>
                             {student.name.charAt(0).toUpperCase()}
@@ -382,6 +383,122 @@ export default function DashboardClient() {
           onClose={() => setShowFlexibleForm(false)}
           onSaved={() => { setShowFlexibleForm(false); loadStudents() }}
         />
+      )}
+
+      {/* OLD STUDENT DETAIL MODAL */}
+      {oldSelectedStudent && (
+        <div className="modal-backdrop" onClick={() => setOldSelectedStudent(null)}>
+          <div onClick={e => e.stopPropagation()} className="animate-slideUp" style={{
+            width:'100%', maxWidth:'440px', background:'#1e293b', borderRadius:'24px',
+            border:'1.5px solid rgba(255,255,255,0.1)', boxShadow:'0 40px 80px rgba(0,0,0,0.6)',
+            overflow:'hidden', maxHeight:'90vh', overflowY:'auto', fontFamily:"'Nunito', sans-serif"
+          }}>
+            {/* Header */}
+            <div style={{ padding:'20px 22px 16px', background:'linear-gradient(135deg,#1e293b,#0f172a)', borderBottom:'1px solid rgba(255,255,255,0.07)', position:'relative' }}>
+              <button onClick={() => setOldSelectedStudent(null)} style={{ position:'absolute', top:'14px', right:'14px', background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'8px', width:'30px', height:'30px', cursor:'pointer', color:'#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+              <div style={{ color:'#475569', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'5px' }}>
+                Past Student · Block {oldSelectedStudent.block}{oldSelectedStudent.seat_number ? ` · Seat ${oldSelectedStudent.seat_number}` : ' · Flexible'}
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                <div style={{ width:'46px', height:'46px', borderRadius:'13px', background:'rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'20px', color:'#64748b', flexShrink:0, fontFamily:"'Sora', sans-serif" }}>
+                  {oldSelectedStudent.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontSize:'22px', fontWeight:'800', color:'#94a3b8', fontFamily:"'Sora', sans-serif" }}>{oldSelectedStudent.name}</div>
+                  <div style={{ color:'#475569', fontSize:'12px', marginTop:'2px' }}>{oldSelectedStudent.insider_outsider === 'insider' ? '📍 Local' : '✈️ Outstation'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding:'16px 20px 20px', display:'flex', flexDirection:'column', gap:'10px' }}>
+
+              {/* Dates summary */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                  <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📅 Joined</div>
+                  <div style={{ color:'#94a3b8', fontWeight:'700', fontSize:'13px' }}>{new Date(oldSelectedStudent.joining_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
+                </div>
+                <div style={{ background:'rgba(239,68,68,0.06)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(239,68,68,0.15)' }}>
+                  <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>🚪 Vacated</div>
+                  <div style={{ color:'#f87171', fontWeight:'700', fontSize:'13px' }}>
+                    {oldSelectedStudent.vacated_at ? new Date(oldSelectedStudent.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes if any */}
+              {oldSelectedStudent.vacate_notes && (
+                <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                  <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📝 Vacate Reason</div>
+                  <div style={{ color:'#94a3b8', fontSize:'13px', fontStyle:'italic' }}>"{oldSelectedStudent.vacate_notes}"</div>
+                </div>
+              )}
+
+              {/* Info grid */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                {[
+                  { icon:'📖', label:'Exam',     value: oldSelectedStudent.exam },
+                  { icon:'🎓', label:'College',  value: oldSelectedStudent.college },
+                  { icon:'📱', label:'Phone',    value: oldSelectedStudent.phone || '—' },
+                  { icon:'⏱️', label:'Duration', value: `${oldSelectedStudent.duration_months} month${oldSelectedStudent.duration_months > 1 ? 's' : ''}` },
+                ].map(({ icon, label, value }) => (
+                  <div key={label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                    <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>{icon} {label}</div>
+                    <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Address */}
+              <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📍 Address (Aadhaar)</div>
+                <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>{oldSelectedStudent.address}</div>
+              </div>
+
+              {/* Payment details — admin only */}
+              {isAdmin && (
+                <>
+                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'10px' }}>
+                    <div style={{ color:'#475569', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>💰 Financial Details</div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                      {[
+                        { icon:'💰', label:'Amount Paid',   value: `₹${Number(oldSelectedStudent.amount).toLocaleString('en-IN')}` },
+                        { icon:'🏦', label:'Account',       value: oldSelectedStudent.account },
+                        { icon:'📅', label:'Payment Date',  value: new Date(oldSelectedStudent.payment_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) },
+                      ].map(({ icon, label, value }) => (
+                        <div key={label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                          <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>{icon} {label}</div>
+                          <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>{value}</div>
+                        </div>
+                      ))}
+                      {/* Security deposit */}
+                      {oldSelectedStudent.security_deposit > 0 && (
+                        <div style={{ background: oldSelectedStudent.security_deposit_status === 'forfeited' ? 'rgba(251,191,36,0.06)' : oldSelectedStudent.security_deposit_status === 'refunded' ? 'rgba(99,102,241,0.06)' : 'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:`1px solid ${oldSelectedStudent.security_deposit_status === 'forfeited' ? 'rgba(251,191,36,0.2)' : oldSelectedStudent.security_deposit_status === 'refunded' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.07)'}` }}>
+                          <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>🔐 Security Deposit</div>
+                          <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>₹{Number(oldSelectedStudent.security_deposit).toLocaleString('en-IN')}</div>
+                          <div style={{ fontSize:'11px', marginTop:'3px', color: oldSelectedStudent.security_deposit_status === 'forfeited' ? '#fde047' : oldSelectedStudent.security_deposit_status === 'refunded' ? '#a5b4fc' : '#64748b', fontWeight:'600' }}>
+                            {oldSelectedStudent.security_deposit_status === 'forfeited' ? '❌ Forfeited' : oldSelectedStudent.security_deposit_status === 'refunded' ? '↩️ Refunded' : '—'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Re-assign button */}
+              {canEdit && (
+                <button onClick={() => {
+                  setOldSelectedStudent(null)
+                  // Open form with this student pre-selected as returning
+                  // We'll trigger the seat selection flow
+                }} style={{ padding:'12px', borderRadius:'12px', border:'1.5px solid rgba(99,102,241,0.4)', background:'rgba(99,102,241,0.1)', color:'#a5b4fc', fontSize:'13px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit', marginTop:'4px' }}>
+                  🔄 Re-assign to a Seat
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`
