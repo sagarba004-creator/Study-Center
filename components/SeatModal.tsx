@@ -206,6 +206,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                 <InfoBox icon="🎓" label="College"  value={student.college} />
                 <InfoBox icon="📅" label="Joined"   value={format(new Date(student.joining_date), 'dd MMM yyyy')} />
                 <InfoBox icon="⏱️" label="Duration" value={`${student.duration_months} month${student.duration_months > 1 ? 's' : ''}`} />
+                {student.phone && <InfoBox icon="📱" label="Phone" value={student.phone} />}
               </div>
 
               {/* Payment — admin + staff */}

@@ -124,7 +124,8 @@ export default function DashboardClient() {
     s.name.toLowerCase().includes(search.toLowerCase()) ||
     s.exam.toLowerCase().includes(search.toLowerCase()) ||
     s.college.toLowerCase().includes(search.toLowerCase()) ||
-    String(s.seat_number).includes(search)
+    String(s.seat_number).includes(search) ||
+    (s.phone && s.phone.includes(search))
   )
 
   const tabs: { key: Tab; label: string; emoji: string; allowedRoles: Role[] }[] = [
@@ -268,7 +269,7 @@ export default function DashboardClient() {
                           <div>
                             <div style={{ fontWeight:'700', color:'#94a3b8', fontSize:'14px' }}>{student.name}</div>
                             <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.college}</div>
-                            <div style={{ color:'#334155', fontSize:'10px', marginTop:'1px' }}>Block {student.block}{student.seat_number ? ` · Seat ${student.seat_number}` : ' · Flexible'}</div>
+                            <div style={{ color:'#334155', fontSize:'10px', marginTop:'1px' }}>Block {student.block}{student.seat_number ? ` · Seat ${student.seat_number}` : ' · Flexible'}{student.phone ? ` · 📱 ${student.phone}` : ''}</div>
                             {student.vacate_notes && <div style={{ color:'#475569', fontSize:'11px', marginTop:'4px', fontStyle:'italic' }}>"{student.vacate_notes}"</div>}
                           </div>
                         </div>

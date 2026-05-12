@@ -75,6 +75,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
 
   const [form, setForm] = useState({
     name:                    student?.name || '',
+    phone:                   student?.phone || '',
     exam:                    student?.exam || '',
     insider_outsider:        student?.insider_outsider || 'insider',
     address:                 student?.address || '',
@@ -106,7 +107,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
         .from('students')
         .select('*')
         .eq('is_active', false)
-        .ilike('name', `%${oldStudentSearch}%`)
+        .or(`name.ilike.%${oldStudentSearch}%,phone.ilike.%${oldStudentSearch}%`)
         .order('vacated_at', { ascending: false })
         .limit(8)
       setOldStudents((data as Student[]) || [])
@@ -120,6 +121,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
     setForm(f => ({
       ...f,
       name:             s.name,
+      phone:            s.phone || '',
       exam:             s.exam,
       insider_outsider: s.insider_outsider,
       address:          s.address,
@@ -144,6 +146,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
 
     const payload: Record<string, unknown> = {
       name:                    form.name,
+      phone:                   form.phone || null,
       exam:                    form.exam,
       insider_outsider:        form.insider_outsider,
       address:                 form.address,
@@ -229,6 +232,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
                       <div style={{ color:'#f1f5f9', fontWeight:'700', fontSize:'13px' }}>{s.name}</div>
                       <div style={{ color:'#64748b', fontSize:'11px', marginTop:'2px' }}>
                         {s.exam} · {s.college} · Block {s.block}{s.seat_number ? `, Seat ${s.seat_number}` : ''}
+                        {s.phone && <span style={{ marginLeft:'8px', color:'#475569' }}>📱 {s.phone}</span>}
                         {s.vacated_at && <span style={{ marginLeft:'8px', color:'#475569' }}>Vacated {new Date(s.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</span>}
                       </div>
                     </button>
@@ -249,6 +253,12 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
           {/* Name */}
           <Field label="Full Name *">
             <input required value={form.name} onChange={e => set('name', e.target.value)} placeholder="Student full name" style={inp} />
+          </Field>
+
+          <Field label="Phone Number">
+            <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)}
+              placeholder="10-digit mobile number" maxLength={10}
+              style={inp} />
           </Field>
 
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
