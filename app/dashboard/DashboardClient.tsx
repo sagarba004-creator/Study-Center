@@ -25,17 +25,6 @@ const BLOCK1_ALL = [
 ]
 const BLOCK2_ALL = Array.from({ length: 86 }, (_, i) => i + 1)
 
-function StatCard({ emoji, label, value, sub, color }: { emoji: string; label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'18px 20px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'130px' }}>
-      <div style={{ fontSize:'22px', marginBottom:'10px' }}>{emoji}</div>
-      <div style={{ fontSize:'24px', fontWeight:'800', color, fontFamily:"'Sora', sans-serif", lineHeight:1 }}>{value}</div>
-      <div style={{ color:'#94a3b8', fontSize:'12px', marginTop:'5px', fontWeight:'600' }}>{label}</div>
-      {sub && <div style={{ color:'#475569', fontSize:'11px', marginTop:'2px' }}>{sub}</div>}
-    </div>
-  )
-}
-
 const roleBadge: Record<Role, { label: string; color: string; bg: string }> = {
   admin:  { label: '⚡ Admin',  color: '#fde047', bg: 'rgba(253,224,71,0.12)'  },
   staff:  { label: '🧑‍💼 Staff',  color: '#4ade80', bg: 'rgba(74,222,128,0.12)' },
@@ -54,30 +43,22 @@ export default function DashboardClient() {
   const [selectedSeat, setSelectedSeat]         = useState<SeatWithStudent | null>(null)
   const [showForm, setShowForm]                 = useState(false)
   const [showFlexibleForm, setShowFlexibleForm] = useState(false)
-  const [oldSelectedStudent, setOldSelectedStudent] = useState<Student | null>(null)
   const [editingStudent, setEditingStudent]     = useState<Student | null>(null)
+  const [oldSelectedStudent, setOldSelectedStudent] = useState<Student | null>(null)
 
   const isAdmin   = role === 'admin'
-  const canEdit   = role === 'admin' || role === 'staff'   // add / renew / edit
-  const canVacate = role === 'admin' || role === 'staff'   // staff can also vacate
+  const canEdit   = role === 'admin' || role === 'staff'
+  const canVacate = role === 'admin' || role === 'staff'
 
   useEffect(() => {
     const init = async () => {
-      // Check session exists
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/'); return }
-
-      // Read role directly from DB via RPC — most reliable method
-      const { data: roleData, error } = await supabase.rpc('get_my_role')
-      console.log('Role from DB:', roleData, error)
-
+      const { data: roleData } = await supabase.rpc('get_my_role')
       if (roleData === 'admin') setRole('admin')
       else if (roleData === 'staff') setRole('staff')
       else {
-        // Fallback: try user_metadata from session
-        const meta = session.user?.user_metadata || {}
-        const r = meta?.role
-        console.log('Fallback role from meta:', r)
+        const r = session.user?.user_metadata?.role
         if (r === 'admin') setRole('admin')
         else if (r === 'staff') setRole('staff')
         else setRole('viewer')
@@ -92,7 +73,7 @@ export default function DashboardClient() {
       supabase.from('students').select('*').eq('is_active', false).order('vacated_at', { ascending: false }),
     ])
     if (active.data) setStudents(active.data as Student[])
-    if (old.data) setOldStudents(old.data as Student[])
+    if (old.data)    setOldStudents(old.data as Student[])
     setLoading(false)
   }, [])
 
@@ -109,9 +90,9 @@ export default function DashboardClient() {
   const b1Seats = buildSeats(1, BLOCK1_ALL)
   const b2Seats = buildSeats(2, BLOCK2_ALL)
 
-  const totalSeats    = b1Seats.length + b2Seats.length
   const fixedStudents = students.filter(s => !s.is_flexible && s.seat_number)
   const flexStudents  = students.filter(s => s.is_flexible || !s.seat_number)
+  const totalSeats    = b1Seats.length + b2Seats.length
   const occupied      = fixedStudents.length
   const vacant        = totalSeats - occupied
   const overdue       = students.filter(s => getSeatStatus(s) === 'overdue').length
@@ -130,52 +111,60 @@ export default function DashboardClient() {
   )
 
   const tabs: { key: Tab; label: string; emoji: string; allowedRoles: Role[] }[] = [
-    { key:'block1',    label:'Block 1',   emoji:'🏠', allowedRoles:['admin','staff','viewer'] },
-    { key:'block2',    label:'Block 2',   emoji:'🏢', allowedRoles:['admin','staff','viewer'] },
-    { key:'students',  label:'Students',  emoji:'👥', allowedRoles:['admin','staff','viewer'] },
-    { key:'analytics', label:'Analytics', emoji:'📊', allowedRoles:['admin'] },
+    { key:'block1',    label:'Block 1',      emoji:'🏠', allowedRoles:['admin','staff','viewer'] },
+    { key:'block2',    label:'Block 2',      emoji:'🏢', allowedRoles:['admin','staff','viewer'] },
+    { key:'students',  label:'Students',     emoji:'👥', allowedRoles:['admin','staff','viewer'] },
     { key:'history',   label:'Old Students', emoji:'🗂️', allowedRoles:['admin','staff','viewer'] },
+    { key:'analytics', label:'Analytics',    emoji:'📊', allowedRoles:['admin'] },
   ]
 
-  const sBtn = (active: boolean): React.CSSProperties => ({
-    padding:'9px 16px', borderRadius:'10px', border:'none', cursor:'pointer', fontFamily:'inherit',
-    fontWeight:'700', fontSize:'13px', transition:'all 0.2s', whiteSpace:'nowrap',
-    background: active ? 'linear-gradient(135deg, #6366f1, #ec4899)' : 'transparent',
-    color: active ? 'white' : '#64748b',
-    boxShadow: active ? '0 4px 12px rgba(99,102,241,0.4)' : 'none',
-  })
-
   const badge = roleBadge[role]
+
+  const InfoBox = ({ icon, label, value }: { icon: string; label: string; value: string }) => (
+    <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
+      <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>{icon} {label}</div>
+      <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>{value}</div>
+    </div>
+  )
 
   return (
     <div style={{ minHeight:'100vh', background:'#0f172a', fontFamily:"'Nunito', sans-serif", color:'#f1f5f9' }}>
 
       {/* TOPBAR */}
-      <header style={{ padding:'12px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', borderBottom:'1px solid rgba(255,255,255,0.07)', background:'rgba(15,23,42,0.95)', backdropFilter:'blur(16px)', position:'sticky', top:0, zIndex:40 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-          <div style={{ width:'38px', height:'38px', borderRadius:'11px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px', flexShrink:0 }}>📚</div>
+      <header style={{ padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'8px', borderBottom:'1px solid rgba(255,255,255,0.07)', background:'rgba(15,23,42,0.95)', backdropFilter:'blur(16px)', position:'sticky', top:0, zIndex:40 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'10px', flexShrink:0 }}>
+          <div style={{ width:'36px', height:'36px', borderRadius:'10px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px' }}>📚</div>
           <div>
-            <div style={{ fontWeight:'800', fontSize:'15px', fontFamily:"'Sora', sans-serif", color:'#f1f5f9', lineHeight:1 }}>Legacy Study Center</div>
-            <span style={{ display:'inline-block', marginTop:'3px', padding:'2px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:'700', background:badge.bg, color:badge.color }}>
-              {badge.label}
-            </span>
+            <div style={{ fontWeight:'800', fontSize:'14px', fontFamily:"'Sora', sans-serif", color:'#f1f5f9', lineHeight:1 }}>Legacy</div>
+            <span style={{ display:'inline-block', marginTop:'2px', padding:'1px 7px', borderRadius:'8px', fontSize:'9px', fontWeight:'700', background:badge.bg, color:badge.color }}>{badge.label}</span>
           </div>
         </div>
 
-        {/* Alert pills */}
-        <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', flex:1, justifyContent:'center' }}>
-          {overdue > 0 && <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(239,68,68,0.15)', color:'#f87171', border:'1px solid rgba(239,68,68,0.25)' }}>🔴 {overdue} Overdue</span>}
-          {dueSoon > 0 && <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(251,191,36,0.15)', color:'#fde047', border:'1px solid rgba(251,191,36,0.25)' }}>🟡 {dueSoon} Due Soon</span>}
-          {flexStudents.length > 0 && <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(103,232,249,0.15)', color:'#67e8f9', border:'1px solid rgba(103,232,249,0.25)' }}>🔄 {flexStudents.length} Flexible</span>}
-          <span style={{ padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.25)' }}>🪑 {occupied} Fixed</span>
+        {/* Alert pills — hidden on small screens */}
+        <div style={{ display:'flex', gap:'5px', flexWrap:'wrap', justifyContent:'center', flex:1 }}>
+          {overdue > 0  && <span style={{ padding:'3px 8px', borderRadius:'20px', fontSize:'10px', fontWeight:'700', background:'rgba(239,68,68,0.15)', color:'#f87171', border:'1px solid rgba(239,68,68,0.25)', whiteSpace:'nowrap' }}>🔴 {overdue}</span>}
+          {dueSoon > 0  && <span style={{ padding:'3px 8px', borderRadius:'20px', fontSize:'10px', fontWeight:'700', background:'rgba(251,191,36,0.15)', color:'#fde047', border:'1px solid rgba(251,191,36,0.25)', whiteSpace:'nowrap' }}>🟡 {dueSoon}</span>}
+          {flexStudents.length > 0 && <span style={{ padding:'3px 8px', borderRadius:'20px', fontSize:'10px', fontWeight:'700', background:'rgba(103,232,249,0.15)', color:'#67e8f9', border:'1px solid rgba(103,232,249,0.25)', whiteSpace:'nowrap' }}>🔄 {flexStudents.length}</span>}
+          <span style={{ padding:'3px 8px', borderRadius:'20px', fontSize:'10px', fontWeight:'700', background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.25)', whiteSpace:'nowrap' }}>🪑 {occupied}</span>
         </div>
 
-        <button onClick={handleLogout} style={{ padding:'7px 14px', borderRadius:'9px', border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color:'#64748b', fontSize:'12px', fontWeight:'600', cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
-          Sign Out
+        <button onClick={handleLogout} style={{ padding:'6px 12px', borderRadius:'8px', border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color:'#64748b', fontSize:'11px', fontWeight:'600', cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
+          Out
         </button>
       </header>
 
-      <main style={{ padding:'20px' }}>
+      {/* BOTTOM TAB BAR — mobile style */}
+      <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:40, background:'rgba(15,23,42,0.97)', backdropFilter:'blur(16px)', borderTop:'1px solid rgba(255,255,255,0.08)', padding:'8px 4px 12px', display:'flex', justifyContent:'space-around' }}>
+        {tabs.filter(t => t.allowedRoles.includes(role)).map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', padding:'6px 12px', borderRadius:'12px', border:'none', cursor:'pointer', fontFamily:'inherit', background: tab === t.key ? 'rgba(99,102,241,0.2)' : 'transparent', transition:'all 0.15s', minWidth:'48px' }}>
+            <span style={{ fontSize:'18px', lineHeight:1 }}>{t.emoji}</span>
+            <span style={{ fontSize:'9px', fontWeight:'700', color: tab === t.key ? '#a5b4fc' : '#475569', whiteSpace:'nowrap' }}>{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <main style={{ padding:'16px 16px 80px' }}>
         {loading ? (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh', flexDirection:'column', gap:'16px' }}>
             <div style={{ width:'44px', height:'44px', borderRadius:'50%', border:'4px solid rgba(99,102,241,0.2)', borderTop:'4px solid #6366f1', animation:'spin 0.8s linear infinite' }} />
@@ -183,131 +172,77 @@ export default function DashboardClient() {
           </div>
         ) : (
           <>
-            {/* STAT CARDS */}
-            <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', marginBottom:'20px' }}>
-              <StatCard emoji="🪑" label="Total Seats"      value={totalSeats}          color="#a5b4fc" />
-              <StatCard emoji="✅" label="Fixed Seats Used"  value={occupied}            color="#4ade80" sub={`${vacant} vacant`} />
-              {flexStudents.length > 0 && <StatCard emoji="🔄" label="Flexible Students" value={flexStudents.length} color="#67e8f9" sub="no fixed seat" />}
-              {dueSoon > 0 && <StatCard emoji="⏰" label="Due Soon" value={dueSoon} color="#fde047" />}
-              {overdue > 0 && <StatCard emoji="🚨" label="Overdue"  value={overdue} color="#f87171" />}
-            </div>
-
-            {/* TABS */}
-            <div style={{ display:'flex', gap:'4px', background:'rgba(255,255,255,0.04)', padding:'5px', borderRadius:'13px', border:'1px solid rgba(255,255,255,0.07)', width:'fit-content', marginBottom:'18px', overflowX:'auto' }}>
-              {tabs.filter(t => t.allowedRoles.includes(role)).map(t => (
-                <button key={t.key} onClick={() => setTab(t.key)} style={sBtn(tab === t.key)}>
-                  {t.emoji} {t.label}
-                </button>
+            {/* STAT CARDS — horizontal scroll on mobile */}
+            <div style={{ display:'flex', gap:'10px', overflowX:'auto', marginBottom:'16px', paddingBottom:'4px', WebkitOverflowScrolling:'touch' }}>
+              {[
+                { emoji:'🪑', label:'Total Seats',     value: String(totalSeats),          color:'#a5b4fc' },
+                { emoji:'✅', label:'Occupied',         value: String(occupied),            color:'#4ade80', sub:`${vacant} vacant` },
+                ...(flexStudents.length > 0 ? [{ emoji:'🔄', label:'Flexible', value: String(flexStudents.length), color:'#67e8f9' }] : []),
+                ...(dueSoon > 0  ? [{ emoji:'⏰', label:'Due Soon',  value: String(dueSoon),  color:'#fde047' }] : []),
+                ...(overdue > 0  ? [{ emoji:'🚨', label:'Overdue',   value: String(overdue),  color:'#f87171' }] : []),
+              ].map(c => (
+                <div key={c.label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'14px 16px', border:'1.5px solid rgba(255,255,255,0.07)', flexShrink:0, minWidth:'110px' }}>
+                  <div style={{ fontSize:'20px', marginBottom:'6px' }}>{c.emoji}</div>
+                  <div style={{ fontSize:'22px', fontWeight:'800', color:c.color, fontFamily:"'Sora', sans-serif", lineHeight:1 }}>{c.value}</div>
+                  <div style={{ color:'#64748b', fontSize:'11px', marginTop:'4px', fontWeight:'600' }}>{c.label}</div>
+                  {'sub' in c && c.sub && <div style={{ color:'#475569', fontSize:'10px', marginTop:'1px' }}>{c.sub}</div>}
+                </div>
               ))}
             </div>
 
-            {/* FLEXIBLE STUDENT BUTTON */}
-            {canEdit && (
-              <div style={{ marginBottom:'14px' }}>
-                <button onClick={() => setShowFlexibleForm(true)} style={{
-                  padding:'9px 18px', borderRadius:'10px', border:'1.5px solid rgba(14,116,144,0.5)',
-                  background:'rgba(14,116,144,0.12)', color:'#67e8f9', fontSize:'13px', fontWeight:'700',
-                  cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:'7px'
-                }}>
-                  🔄 Add Flexible Student <span style={{ color:'#475569', fontWeight:'500', fontSize:'12px' }}>(no fixed seat)</span>
-                </button>
-              </div>
-            )}
-
             {/* LEGEND */}
             {(tab === 'block1' || tab === 'block2') && (
-              <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'14px' }}>
+              <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'12px' }}>
                 {[
-                  { label:'Vacant',   color:'#4ade80', bg:'rgba(34,197,94,0.12)'    },
-                  { label:'Occupied', color:'#f9a8d4', bg:'rgba(249,168,212,0.12)'  },
-                  { label:'Due Soon', color:'#fde047', bg:'rgba(253,224,71,0.12)'   },
-                  { label:'Overdue',  color:'#f87171', bg:'rgba(239,68,68,0.12)'    },
+                  { label:'Vacant',   color:'#4ade80', bg:'rgba(34,197,94,0.12)'   },
+                  { label:'Occupied', color:'#f9a8d4', bg:'rgba(249,168,212,0.12)' },
+                  { label:'Due Soon', color:'#fde047', bg:'rgba(253,224,71,0.12)'  },
+                  { label:'Overdue',  color:'#f87171', bg:'rgba(239,68,68,0.12)'   },
                 ].map(l => (
-                  <div key={l.label} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'5px 10px', borderRadius:'20px', background:l.bg, border:`1px solid ${l.color}30` }}>
-                    <div style={{ width:'9px', height:'9px', borderRadius:'3px', background:l.color }} />
-                    <span style={{ fontSize:'11px', fontWeight:'700', color:l.color }}>{l.label}</span>
+                  <div key={l.label} style={{ display:'flex', alignItems:'center', gap:'5px', padding:'4px 8px', borderRadius:'20px', background:l.bg }}>
+                    <div style={{ width:'8px', height:'8px', borderRadius:'2px', background:l.color }} />
+                    <span style={{ fontSize:'10px', fontWeight:'700', color:l.color }}>{l.label}</span>
                   </div>
                 ))}
               </div>
             )}
 
+            {/* FLEXIBLE STUDENT BUTTON */}
+            {canEdit && (tab === 'block1' || tab === 'block2') && (
+              <div style={{ marginBottom:'12px' }}>
+                <button onClick={() => setShowFlexibleForm(true)} style={{ padding:'8px 14px', borderRadius:'10px', border:'1.5px solid rgba(14,116,144,0.5)', background:'rgba(14,116,144,0.12)', color:'#67e8f9', fontSize:'12px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:'6px' }}>
+                  🔄 Add Flexible Student <span style={{ color:'#475569', fontWeight:'500', fontSize:'11px' }}>(no fixed seat)</span>
+                </button>
+              </div>
+            )}
+
             {/* BLOCK VIEWS */}
             {tab === 'block1' && (
-              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'18px', padding:'18px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'16px', color:'#e2e8f0', marginBottom:'14px' }}>🏠 Block 1</div>
+              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
+                <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏠 Block 1</div>
                 <Block1Grid seatsData={b1Seats} onSeatClick={handleSeatClick} />
               </div>
             )}
             {tab === 'block2' && (
-              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'18px', padding:'18px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'16px', color:'#e2e8f0', marginBottom:'14px' }}>🏢 Block 2</div>
+              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
+                <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏢 Block 2</div>
                 <Block2Grid seatsData={b2Seats} onSeatClick={handleSeatClick} />
               </div>
             )}
 
-            {/* ANALYTICS — admin only */}
+            {/* ANALYTICS */}
             {tab === 'analytics' && isAdmin && <Analytics />}
-
-            {/* OLD STUDENTS HISTORY */}
-            {tab === 'history' && (
-              <div>
-                <div style={{ marginBottom:'14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <div style={{ color:'#64748b', fontSize:'13px', fontWeight:'600' }}>🗂️ {oldStudents.length} past student{oldStudents.length !== 1 ? 's' : ''}</div>
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-                  {oldStudents.length === 0 && (
-                    <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontSize:'14px' }}>No vacated students yet</div>
-                  )}
-                  {oldStudents.map(student => {
-                    const depositColor = student.security_deposit_status === 'forfeited' ? '#f87171' : student.security_deposit_status === 'refunded' ? '#a5b4fc' : '#94a3b8'
-                    const depositLabel = student.security_deposit_status === 'forfeited' ? '❌ Forfeited' : student.security_deposit_status === 'refunded' ? '↩️ Refunded' : student.security_deposit_status === 'collected' ? '✅ Held' : '—'
-                    return (
-                      <div key={student.id} onClick={() => setOldSelectedStudent(student)} style={{ background:'rgba(255,255,255,0.03)', borderRadius:'14px', padding:'14px 16px', border:'1.5px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'12px', cursor:'pointer', transition:'border-color 0.2s' }} onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)')} onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}>
-                        <div style={{ display:'flex', alignItems:'center', gap:'11px' }}>
-                          <div style={{ width:'42px', height:'42px', borderRadius:'12px', background:'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'17px', color:'#64748b', flexShrink:0 }}>
-                            {student.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight:'700', color:'#94a3b8', fontSize:'14px' }}>{student.name}</div>
-                            <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.college}</div>
-                            <div style={{ color:'#334155', fontSize:'10px', marginTop:'1px' }}>Block {student.block}{student.seat_number ? ` · Seat ${student.seat_number}` : ' · Flexible'}{student.phone ? ` · 📱 ${student.phone}` : ''}</div>
-                            {student.vacate_notes && <div style={{ color:'#475569', fontSize:'11px', marginTop:'4px', fontStyle:'italic' }}>"{student.vacate_notes}"</div>}
-                          </div>
-                        </div>
-                        <div style={{ textAlign:'right', flexShrink:0 }}>
-                          <div style={{ color:'#475569', fontSize:'10px' }}>Joined</div>
-                          <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600' }}>{new Date(student.joining_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
-                          <div style={{ color:'#334155', fontSize:'10px', marginTop:'4px' }}>Vacated</div>
-                          <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600' }}>{student.vacated_at ? new Date(student.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}</div>
-                          {canEdit && student.security_deposit > 0 && (
-                            <div style={{ marginTop:'5px', padding:'2px 8px', borderRadius:'8px', fontSize:'10px', fontWeight:'700', color:depositColor, background:`${depositColor}18`, display:'inline-block' }}>
-                              🔐 ₹{Number(student.security_deposit).toLocaleString('en-IN')} {depositLabel}
-                            </div>
-                          )}
-                          {canEdit && <div style={{ color:'#475569', fontSize:'11px', fontWeight:'600', marginTop:'3px' }}>₹{Number(student.amount).toLocaleString('en-IN')}</div>}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* STUDENTS LIST */}
             {tab === 'students' && (
               <div>
-                <div style={{ position:'relative', marginBottom:'14px' }}>
-                  <span style={{ position:'absolute', left:'13px', top:'50%', transform:'translateY(-50%)', fontSize:'15px' }}>🔍</span>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, exam, college, seat…"
-                    style={{ width:'100%', padding:'11px 16px 11px 40px', borderRadius:'12px', border:'1.5px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.05)', color:'#f1f5f9', fontSize:'13px', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
+                <div style={{ position:'relative', marginBottom:'12px' }}>
+                  <span style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', fontSize:'14px' }}>🔍</span>
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, phone, exam, seat…"
+                    style={{ width:'100%', padding:'11px 14px 11px 38px', borderRadius:'12px', border:'1.5px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.05)', color:'#f1f5f9', fontSize:'14px', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
                 </div>
-
                 <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-                  {filtered.length === 0 && (
-                    <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontSize:'14px' }}>
-                      {search ? 'No students match your search' : 'No active students yet'}
-                    </div>
-                  )}
+                  {filtered.length === 0 && <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontSize:'14px' }}>{search ? 'No results' : 'No active students yet'}</div>}
                   {filtered.map(student => {
                     const st = getSeatStatus(student)
                     const sc: Record<string,string> = { occupied:'#a5b4fc', 'due-soon':'#fde047', overdue:'#f87171', vacant:'#4ade80' }
@@ -316,25 +251,20 @@ export default function DashboardClient() {
                     return (
                       <div key={student.id}
                         onClick={() => { const seat: SeatWithStudent = { block: student.block as 1|2, seat_number: student.seat_number, student, status: st }; setSelectedSeat(seat) }}
-                        style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'13px 15px', border:'1.5px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', cursor:'pointer', transition:'border-color 0.2s' }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}>
-                        <div style={{ display:'flex', alignItems:'center', gap:'11px' }}>
-                          <div style={{ width:'42px', height:'42px', borderRadius:'12px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'17px', color:'white', flexShrink:0, fontFamily:"'Sora', sans-serif" }}>
+                        style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'12px 14px', border:'1.5px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', cursor:'pointer' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 }}>
+                          <div style={{ width:'40px', height:'40px', borderRadius:'11px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'16px', color:'white', flexShrink:0 }}>
                             {student.name.charAt(0).toUpperCase()}
                           </div>
-                          <div>
-                            <div style={{ fontWeight:'700', color:'#f1f5f9', fontSize:'14px' }}>{student.name}</div>
-                            <div style={{ color:'#64748b', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.college}</div>
-                            <div style={{ color:'#475569', fontSize:'10px', marginTop:'1px' }}>
-                              Block {student.block} · {student.seat_number ? `Seat ${student.seat_number}` : <span style={{ color:'#67e8f9' }}>🔄 Flexible</span>}
-                            </div>
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ fontWeight:'700', color:'#f1f5f9', fontSize:'13px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{student.name}</div>
+                            <div style={{ color:'#64748b', fontSize:'11px', marginTop:'1px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{student.exam} · {student.phone || ''}</div>
+                            <div style={{ color:'#475569', fontSize:'10px', marginTop:'1px' }}>B{student.block} · {student.seat_number ? `Seat ${student.seat_number}` : 'Flexible'}</div>
                           </div>
                         </div>
                         <div style={{ textAlign:'right', flexShrink:0 }}>
-                          <span style={{ padding:'3px 9px', borderRadius:'10px', fontSize:'10px', fontWeight:'700', background:sb[st], color:sc[st] }}>{sl[st]}</span>
-                          <div style={{ color:'#64748b', fontSize:'10px', marginTop:'4px' }}>Due: {new Date(student.due_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
-                          {/* Only admin sees amount in list */}
+                          <span style={{ padding:'3px 8px', borderRadius:'8px', fontSize:'10px', fontWeight:'700', background:sb[st], color:sc[st] }}>{sl[st]}</span>
+                          <div style={{ color:'#64748b', fontSize:'10px', marginTop:'4px', whiteSpace:'nowrap' }}>{new Date(student.due_date).toLocaleDateString('en-IN', { day:'numeric', month:'short' })}</div>
                           {canEdit && <div style={{ color:'#6366f1', fontSize:'11px', fontWeight:'700', marginTop:'2px' }}>₹{Number(student.amount).toLocaleString('en-IN')}</div>}
                         </div>
                       </div>
@@ -343,10 +273,45 @@ export default function DashboardClient() {
                 </div>
               </div>
             )}
+
+            {/* OLD STUDENTS */}
+            {tab === 'history' && (
+              <div>
+                <div style={{ color:'#64748b', fontSize:'12px', fontWeight:'600', marginBottom:'12px' }}>🗂️ {oldStudents.length} past student{oldStudents.length !== 1 ? 's' : ''}</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                  {oldStudents.length === 0 && <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontSize:'14px' }}>No vacated students yet</div>}
+                  {oldStudents.map(student => (
+                    <div key={student.id} onClick={() => setOldSelectedStudent(student)}
+                      style={{ background:'rgba(255,255,255,0.03)', borderRadius:'14px', padding:'12px 14px', border:'1.5px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', cursor:'pointer' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 }}>
+                        <div style={{ width:'40px', height:'40px', borderRadius:'11px', background:'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'16px', color:'#64748b', flexShrink:0 }}>
+                          {student.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ minWidth:0 }}>
+                          <div style={{ fontWeight:'700', color:'#94a3b8', fontSize:'13px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{student.name}</div>
+                          <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.phone || ''}</div>
+                          <div style={{ color:'#334155', fontSize:'10px', marginTop:'1px' }}>B{student.block}{student.seat_number ? ` · Seat ${student.seat_number}` : ' · Flexible'}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign:'right', flexShrink:0 }}>
+                        <div style={{ color:'#475569', fontSize:'10px' }}>Vacated</div>
+                        <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600', whiteSpace:'nowrap' }}>
+                          {student.vacated_at ? new Date(student.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}
+                        </div>
+                        {canEdit && student.security_deposit > 0 && (
+                          <div style={{ fontSize:'10px', fontWeight:'700', marginTop:'3px', color: student.security_deposit_status === 'forfeited' ? '#f87171' : student.security_deposit_status === 'refunded' ? '#a5b4fc' : '#94a3b8' }}>
+                            🔐 {student.security_deposit_status === 'forfeited' ? '❌' : student.security_deposit_status === 'refunded' ? '↩️' : '—'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
-
 
       {/* MODALS */}
       {selectedSeat && !showForm && (
@@ -393,108 +358,57 @@ export default function DashboardClient() {
             border:'1.5px solid rgba(255,255,255,0.1)', boxShadow:'0 40px 80px rgba(0,0,0,0.6)',
             overflow:'hidden', maxHeight:'90vh', overflowY:'auto', fontFamily:"'Nunito', sans-serif"
           }}>
-            {/* Header */}
-            <div style={{ padding:'20px 22px 16px', background:'linear-gradient(135deg,#1e293b,#0f172a)', borderBottom:'1px solid rgba(255,255,255,0.07)', position:'relative' }}>
-              <button onClick={() => setOldSelectedStudent(null)} style={{ position:'absolute', top:'14px', right:'14px', background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'8px', width:'30px', height:'30px', cursor:'pointer', color:'#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
-              <div style={{ color:'#475569', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'5px' }}>
-                Past Student · Block {oldSelectedStudent.block}{oldSelectedStudent.seat_number ? ` · Seat ${oldSelectedStudent.seat_number}` : ' · Flexible'}
+            <div style={{ padding:'18px 20px 14px', background:'linear-gradient(135deg,#1e293b,#0f172a)', borderBottom:'1px solid rgba(255,255,255,0.07)', position:'relative' }}>
+              <button onClick={() => setOldSelectedStudent(null)} style={{ position:'absolute', top:'12px', right:'12px', background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'8px', width:'30px', height:'30px', cursor:'pointer', color:'#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+              <div style={{ color:'#475569', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:'4px' }}>
+                Past Student · B{oldSelectedStudent.block}{oldSelectedStudent.seat_number ? ` · Seat ${oldSelectedStudent.seat_number}` : ' · Flexible'}
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-                <div style={{ width:'46px', height:'46px', borderRadius:'13px', background:'rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'20px', color:'#64748b', flexShrink:0, fontFamily:"'Sora', sans-serif" }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                <div style={{ width:'42px', height:'42px', borderRadius:'12px', background:'rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'18px', color:'#64748b', flexShrink:0 }}>
                   {oldSelectedStudent.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <div style={{ fontSize:'22px', fontWeight:'800', color:'#94a3b8', fontFamily:"'Sora', sans-serif" }}>{oldSelectedStudent.name}</div>
-                  <div style={{ color:'#475569', fontSize:'12px', marginTop:'2px' }}>{oldSelectedStudent.insider_outsider === 'insider' ? '📍 Local' : '✈️ Outstation'}</div>
+                  <div style={{ fontSize:'20px', fontWeight:'800', color:'#94a3b8', fontFamily:"'Sora', sans-serif" }}>{oldSelectedStudent.name}</div>
+                  <div style={{ color:'#475569', fontSize:'11px' }}>{oldSelectedStudent.insider_outsider === 'insider' ? '📍 Local' : '✈️ Outstation'}</div>
                 </div>
               </div>
             </div>
-
-            <div style={{ padding:'16px 20px 20px', display:'flex', flexDirection:'column', gap:'10px' }}>
-
-              {/* Dates summary */}
+            <div style={{ padding:'14px 18px 20px', display:'flex', flexDirection:'column', gap:'10px' }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-                <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📅 Joined</div>
-                  <div style={{ color:'#94a3b8', fontWeight:'700', fontSize:'13px' }}>{new Date(oldSelectedStudent.joining_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}</div>
-                </div>
-                <div style={{ background:'rgba(239,68,68,0.06)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(239,68,68,0.15)' }}>
-                  <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>🚪 Vacated</div>
-                  <div style={{ color:'#f87171', fontWeight:'700', fontSize:'13px' }}>
-                    {oldSelectedStudent.vacated_at ? new Date(oldSelectedStudent.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}
-                  </div>
-                </div>
+                <InfoBox icon="📅" label="Joined"  value={new Date(oldSelectedStudent.joining_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })} />
+                <InfoBox icon="🚪" label="Vacated" value={oldSelectedStudent.vacated_at ? new Date(oldSelectedStudent.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'} />
               </div>
-
-              {/* Notes if any */}
               {oldSelectedStudent.vacate_notes && (
                 <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
-                  <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📝 Vacate Reason</div>
+                  <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📝 Reason</div>
                   <div style={{ color:'#94a3b8', fontSize:'13px', fontStyle:'italic' }}>"{oldSelectedStudent.vacate_notes}"</div>
                 </div>
               )}
-
-              {/* Info grid */}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-                {[
-                  { icon:'📖', label:'Exam',     value: oldSelectedStudent.exam },
-                  { icon:'🎓', label:'College',  value: oldSelectedStudent.college },
-                  { icon:'📱', label:'Phone',    value: oldSelectedStudent.phone || '—' },
-                  { icon:'⏱️', label:'Duration', value: `${oldSelectedStudent.duration_months} month${oldSelectedStudent.duration_months > 1 ? 's' : ''}` },
-                ].map(({ icon, label, value }) => (
-                  <div key={label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
-                    <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>{icon} {label}</div>
-                    <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>{value}</div>
-                  </div>
-                ))}
+                <InfoBox icon="📖" label="Exam"     value={oldSelectedStudent.exam} />
+                <InfoBox icon="🎓" label="College"  value={oldSelectedStudent.college} />
+                <InfoBox icon="📱" label="Phone"    value={oldSelectedStudent.phone || '—'} />
+                <InfoBox icon="⏱️" label="Duration" value={`${oldSelectedStudent.duration_months}m`} />
               </div>
-
-              {/* Address */}
-              <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📍 Address (Aadhaar)</div>
-                <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>{oldSelectedStudent.address}</div>
-              </div>
-
-              {/* Payment details — admin only */}
+              <InfoBox icon="📍" label="Address" value={oldSelectedStudent.address} />
               {isAdmin && (
-                <>
-                  <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'10px' }}>
-                    <div style={{ color:'#475569', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>💰 Financial Details</div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-                      {[
-                        { icon:'💰', label:'Amount Paid',   value: `₹${Number(oldSelectedStudent.amount).toLocaleString('en-IN')}` },
-                        { icon:'🏦', label:'Account',       value: oldSelectedStudent.account },
-                        { icon:'📅', label:'Payment Date',  value: new Date(oldSelectedStudent.payment_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) },
-                      ].map(({ icon, label, value }) => (
-                        <div key={label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
-                          <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>{icon} {label}</div>
-                          <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>{value}</div>
+                <div style={{ borderTop:'1px solid rgba(255,255,255,0.06)', paddingTop:'10px', display:'flex', flexDirection:'column', gap:'8px' }}>
+                  <div style={{ color:'#475569', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em' }}>💰 Financials</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                    <InfoBox icon="💰" label="Amount"       value={`₹${Number(oldSelectedStudent.amount).toLocaleString('en-IN')}`} />
+                    <InfoBox icon="🏦" label="Account"      value={oldSelectedStudent.account} />
+                    <InfoBox icon="📅" label="Payment Date" value={new Date(oldSelectedStudent.payment_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })} />
+                    {oldSelectedStudent.security_deposit > 0 && (
+                      <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                        <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>🔐 Deposit</div>
+                        <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>₹{Number(oldSelectedStudent.security_deposit).toLocaleString('en-IN')}</div>
+                        <div style={{ fontSize:'11px', marginTop:'2px', color: oldSelectedStudent.security_deposit_status === 'forfeited' ? '#fde047' : '#a5b4fc' }}>
+                          {oldSelectedStudent.security_deposit_status === 'forfeited' ? '❌ Forfeited' : '↩️ Refunded'}
                         </div>
-                      ))}
-                      {/* Security deposit */}
-                      {oldSelectedStudent.security_deposit > 0 && (
-                        <div style={{ background: oldSelectedStudent.security_deposit_status === 'forfeited' ? 'rgba(251,191,36,0.06)' : oldSelectedStudent.security_deposit_status === 'refunded' ? 'rgba(99,102,241,0.06)' : 'rgba(255,255,255,0.04)', borderRadius:'10px', padding:'12px', border:`1px solid ${oldSelectedStudent.security_deposit_status === 'forfeited' ? 'rgba(251,191,36,0.2)' : oldSelectedStudent.security_deposit_status === 'refunded' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.07)'}` }}>
-                          <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>🔐 Security Deposit</div>
-                          <div style={{ color:'#94a3b8', fontSize:'13px', fontWeight:'600' }}>₹{Number(oldSelectedStudent.security_deposit).toLocaleString('en-IN')}</div>
-                          <div style={{ fontSize:'11px', marginTop:'3px', color: oldSelectedStudent.security_deposit_status === 'forfeited' ? '#fde047' : oldSelectedStudent.security_deposit_status === 'refunded' ? '#a5b4fc' : '#64748b', fontWeight:'600' }}>
-                            {oldSelectedStudent.security_deposit_status === 'forfeited' ? '❌ Forfeited' : oldSelectedStudent.security_deposit_status === 'refunded' ? '↩️ Refunded' : '—'}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
-                </>
-              )}
-
-              {/* Re-assign button */}
-              {canEdit && (
-                <button onClick={() => {
-                  setOldSelectedStudent(null)
-                  // Open form with this student pre-selected as returning
-                  // We'll trigger the seat selection flow
-                }} style={{ padding:'12px', borderRadius:'12px', border:'1.5px solid rgba(99,102,241,0.4)', background:'rgba(99,102,241,0.1)', color:'#a5b4fc', fontSize:'13px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit', marginTop:'4px' }}>
-                  🔄 Re-assign to a Seat
-                </button>
+                </div>
               )}
             </div>
           </div>
@@ -505,6 +419,8 @@ export default function DashboardClient() {
         @keyframes spin { to { transform: rotate(360deg); } }
         input::placeholder { color: #475569; }
         select option { background: #1e293b; color: #f1f5f9; }
+        * { -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   )

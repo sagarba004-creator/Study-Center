@@ -31,7 +31,7 @@ export default function LoginClient() {
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)',
-      fontFamily: "'Nunito', system-ui, sans-serif", padding: '20px', position: 'relative', overflow: 'hidden'
+      fontFamily: "'Nunito', system-ui, sans-serif", padding: '20px', position: 'relative', overflow: 'hidden', WebkitOverflowScrolling: 'touch'
     }}>
       {/* Decorative blobs */}
       <div style={{ position:'absolute', top:'-10%', left:'-5%', width:'500px', height:'500px', borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)', pointerEvents:'none' }} />
