@@ -180,48 +180,41 @@ export default function DashboardClient() {
           </div>
         ) : (
           <>
-            {/* STAT CARDS — horizontal scroll on mobile */}
+            {/* STAT CARDS — clickable, open filtered student list */}
             <div style={{ display:'flex', gap:'10px', overflowX:'auto', marginBottom:'16px', paddingBottom:'4px', WebkitOverflowScrolling:'touch' }}>
               {[
-                { emoji:'🪑', label:'Total Seats',     value: String(totalSeats),          color:'#a5b4fc' },
-                { emoji:'✅', label:'Occupied',         value: String(occupied),            color:'#4ade80', sub:`${vacant} vacant` },
-                ...(flexStudents.length > 0 ? [{ emoji:'🔄', label:'Flexible', value: String(flexStudents.length), color:'#67e8f9' }] : []),
-                ...(dueSoon > 0  ? [{ emoji:'⏰', label:'Due Soon',  value: String(dueSoon),  color:'#fde047' }] : []),
-                ...(overdue > 0  ? [{ emoji:'🚨', label:'Overdue',   value: String(overdue),  color:'#f87171' }] : []),
+                { emoji:'🪑', label:'Total Seats',  value: String(totalSeats), color:'#a5b4fc', filter: null,       clickable: false },
+                { emoji:'✅', label:'Occupied',      value: String(occupied),   color:'#4ade80', filter:'occupied',   clickable: true,  sub:`${vacant} vacant` },
+                ...(flexStudents.length > 0 ? [{ emoji:'🔄', label:'Flexible', value: String(flexStudents.length), color:'#67e8f9', filter:'flexible', clickable: true }] : []),
+                ...(dueSoon > 0  ? [{ emoji:'⏰', label:'Due Soon',  value: String(dueSoon),  color:'#fde047', filter:'due-soon', clickable: true }] : []),
+                ...(overdue > 0  ? [{ emoji:'🚨', label:'Overdue',   value: String(overdue),  color:'#f87171', filter:'overdue',  clickable: true }] : []),
               ].map(c => (
-                <div key={c.label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'14px 16px', border:'1.5px solid rgba(255,255,255,0.07)', flexShrink:0, minWidth:'110px' }}>
+                <div key={c.label}
+                  onClick={() => c.clickable && setStatusFilter((c.filter as string | null))}
+                  style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'14px 16px', border:`1.5px solid ${statusFilter === c.filter && c.filter ? c.color + '55' : 'rgba(255,255,255,0.07)'}`, flexShrink:0, minWidth:'110px', cursor: c.clickable ? 'pointer' : 'default', transition:'all 0.15s', position:'relative' }}>
                   <div style={{ fontSize:'20px', marginBottom:'6px' }}>{c.emoji}</div>
                   <div style={{ fontSize:'22px', fontWeight:'800', color:c.color, fontFamily:"'Sora', sans-serif", lineHeight:1 }}>{c.value}</div>
                   <div style={{ color:'#64748b', fontSize:'11px', marginTop:'4px', fontWeight:'600' }}>{c.label}</div>
                   {'sub' in c && c.sub && <div style={{ color:'#475569', fontSize:'10px', marginTop:'1px' }}>{c.sub}</div>}
+                  {c.clickable && <div style={{ position:'absolute', top:'8px', right:'8px', fontSize:'9px', color:'#475569' }}>›</div>}
                 </div>
               ))}
             </div>
 
-            {/* LEGEND — clickable filters */}
-            {(tab === 'block1' || tab === 'block2' || tab === 'students') && (
+            {/* LEGEND — display only */}
+            {(tab === 'block1' || tab === 'block2') && (
               <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'12px' }}>
                 {[
-                  { label:'Vacant',   key:'vacant',   color:'#4ade80', bg:'rgba(34,197,94,0.12)',    activeBg:'rgba(34,197,94,0.3)'    },
-                  { label:'Occupied', key:'occupied', color:'#f9a8d4', bg:'rgba(249,168,212,0.12)',  activeBg:'rgba(249,168,212,0.3)'  },
-                  { label:'Due Soon', key:'due-soon', color:'#fde047', bg:'rgba(253,224,71,0.12)',   activeBg:'rgba(253,224,71,0.3)'   },
-                  { label:'Overdue',  key:'overdue',  color:'#f87171', bg:'rgba(239,68,68,0.12)',    activeBg:'rgba(239,68,68,0.3)'    },
-                ].map(l => {
-                  const isActive = statusFilter === l.key
-                  return (
-                    <button key={l.key} onClick={() => setStatusFilter(isActive ? null : l.key)}
-                      style={{ display:'flex', alignItems:'center', gap:'5px', padding:'5px 10px', borderRadius:'20px', background: isActive ? l.activeBg : l.bg, border:`1.5px solid ${isActive ? l.color : 'transparent'}`, cursor:'pointer', fontFamily:'inherit', transition:'all 0.15s' }}>
-                      <div style={{ width:'8px', height:'8px', borderRadius:'2px', background:l.color }} />
-                      <span style={{ fontSize:'10px', fontWeight:'700', color:l.color }}>{l.label}</span>
-                      {isActive && <span style={{ fontSize:'9px', color:l.color, opacity:0.7 }}>✕</span>}
-                    </button>
-                  )
-                })}
-                {statusFilter && (
-                  <button onClick={() => setStatusFilter(null)} style={{ padding:'5px 10px', borderRadius:'20px', background:'rgba(255,255,255,0.05)', border:'1.5px solid rgba(255,255,255,0.1)', cursor:'pointer', fontFamily:'inherit', color:'#64748b', fontSize:'10px', fontWeight:'700' }}>
-                    Clear filter
-                  </button>
-                )}
+                  { label:'Vacant',   color:'#4ade80', bg:'rgba(34,197,94,0.12)'   },
+                  { label:'Occupied', color:'#f9a8d4', bg:'rgba(249,168,212,0.12)' },
+                  { label:'Due Soon', color:'#fde047', bg:'rgba(253,224,71,0.12)'  },
+                  { label:'Overdue',  color:'#f87171', bg:'rgba(239,68,68,0.12)'   },
+                ].map(l => (
+                  <div key={l.label} style={{ display:'flex', alignItems:'center', gap:'5px', padding:'4px 8px', borderRadius:'20px', background:l.bg }}>
+                    <div style={{ width:'8px', height:'8px', borderRadius:'2px', background:l.color }} />
+                    <span style={{ fontSize:'10px', fontWeight:'700', color:l.color }}>{l.label}</span>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -238,14 +231,14 @@ export default function DashboardClient() {
             {tab === 'block1' && (
               <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
                 <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏠 Block 1</div>
-                <Block1Grid seatsData={statusFilter ? b1Seats.map(s => ({ ...s, _dimmed: s.status !== statusFilter })) : b1Seats} onSeatClick={handleSeatClick} />
+                <Block1Grid seatsData={b1Seats} onSeatClick={handleSeatClick} />
                 <LockerGrid students={students} canEdit={canEdit} isAdmin={isAdmin} onLockerClick={(num, student) => setLockerDetail({ num, student })} />
               </div>
             )}
             {tab === 'block2' && (
               <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
                 <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏢 Block 2</div>
-                <Block2Grid seatsData={statusFilter ? b2Seats.map(s => ({ ...s, _dimmed: s.status !== statusFilter })) : b2Seats} onSeatClick={handleSeatClick} />
+                <Block2Grid seatsData={b2Seats} onSeatClick={handleSeatClick} />
               </div>
             )}
 
@@ -433,6 +426,101 @@ export default function DashboardClient() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* STAT FILTER MODAL */}
+      {statusFilter && (
+        <div className="modal-backdrop" onClick={() => setStatusFilter(null)}>
+          <div onClick={e => e.stopPropagation()} className="animate-slideUp" style={{
+            width:'100%', maxWidth:'480px', background:'#1e293b', borderRadius:'24px',
+            border:'1.5px solid rgba(255,255,255,0.1)', boxShadow:'0 40px 80px rgba(0,0,0,0.6)',
+            overflow:'hidden', maxHeight:'85vh', display:'flex', flexDirection:'column', fontFamily:"'Nunito', sans-serif"
+          }}>
+            {/* Header */}
+            {(() => {
+              const cfg: Record<string, { emoji: string; label: string; color: string; bg: string }> = {
+                'occupied':  { emoji:'✅', label:'Occupied Seats',    color:'#4ade80', bg:'rgba(74,222,128,0.1)'  },
+                'due-soon':  { emoji:'⏰', label:'Due Soon',          color:'#fde047', bg:'rgba(253,224,71,0.1)'  },
+                'overdue':   { emoji:'🚨', label:'Overdue',           color:'#f87171', bg:'rgba(239,68,68,0.1)'   },
+                'flexible':  { emoji:'🔄', label:'Flexible Students', color:'#67e8f9', bg:'rgba(103,232,249,0.1)' },
+              }
+              const c = cfg[statusFilter] || cfg['occupied']
+              const filterStudents = statusFilter === 'flexible'
+                ? flexStudents
+                : students.filter(s => getSeatStatus(s) === statusFilter)
+              const totalFees = filterStudents.reduce((sum, s) => sum + Number(s.amount), 0)
+
+              return (
+                <>
+                  <div style={{ padding:'16px 18px 14px', background:`linear-gradient(135deg, ${c.bg}, transparent)`, borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+                    <div>
+                      <div style={{ fontSize:'20px', fontWeight:'800', color:c.color, fontFamily:"'Sora', sans-serif", display:'flex', alignItems:'center', gap:'8px' }}>
+                        {c.emoji} {c.label}
+                        <span style={{ fontSize:'14px', color:'#64748b', fontWeight:'600' }}>({filterStudents.length})</span>
+                      </div>
+                      {isAdmin && totalFees > 0 && (
+                        <div style={{ color:'#64748b', fontSize:'12px', marginTop:'2px' }}>
+                          Total fees: <span style={{ color:'#4ade80', fontWeight:'700' }}>₹{totalFees.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => setStatusFilter(null)} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'8px', width:'30px', height:'30px', cursor:'pointer', color:'#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+                  </div>
+
+                  {/* Student list */}
+                  <div style={{ overflowY:'auto', padding:'12px 16px 16px', display:'flex', flexDirection:'column', gap:'8px' }}>
+                    {filterStudents.length === 0 && (
+                      <div style={{ textAlign:'center', padding:'40px 0', color:'#475569', fontSize:'14px' }}>No students in this category</div>
+                    )}
+                    {filterStudents.map(student => {
+                      const st = getSeatStatus(student)
+                      const daysLeft = Math.ceil((new Date(student.due_date).getTime() - Date.now()) / 86400000)
+                      return (
+                        <div key={student.id}
+                          onClick={() => {
+                            setStatusFilter(null)
+                            const seat: SeatWithStudent = { block: student.block as 1|2, seat_number: student.seat_number, student, status: st }
+                            setSelectedSeat(seat)
+                          }}
+                          style={{ background:'rgba(255,255,255,0.04)', borderRadius:'12px', padding:'12px 14px', border:'1px solid rgba(255,255,255,0.07)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', transition:'border-color 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.borderColor = c.color + '55')}
+                          onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}>
+                          <div style={{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 }}>
+                            <div style={{ width:'38px', height:'38px', borderRadius:'10px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'15px', color:'white', flexShrink:0 }}>
+                              {student.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ minWidth:0 }}>
+                              <div style={{ fontWeight:'700', color:'#f1f5f9', fontSize:'13px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{student.name}</div>
+                              <div style={{ color:'#64748b', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.phone || ''}</div>
+                              <div style={{ color:'#475569', fontSize:'10px', marginTop:'1px' }}>
+                                B{student.block}{student.seat_number ? ` · Seat ${student.seat_number}` : ' · Flexible'}
+                                {(student.locker_numbers || []).length > 0 && <span style={{ marginLeft:'4px', color:'#6366f1' }}>🔒{student.locker_numbers.join(',')}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ textAlign:'right', flexShrink:0 }}>
+                            <div style={{ color: daysLeft < 0 ? '#f87171' : daysLeft <= 2 ? '#fde047' : '#64748b', fontSize:'11px', fontWeight:'700', whiteSpace:'nowrap' }}>
+                              {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : daysLeft === 0 ? 'Today' : `${daysLeft}d left`}
+                            </div>
+                            <div style={{ color:'#475569', fontSize:'10px', marginTop:'2px' }}>
+                              {new Date(student.due_date).toLocaleDateString('en-IN', { day:'numeric', month:'short' })}
+                            </div>
+                            {canEdit && (
+                              <div style={{ color:'#6366f1', fontSize:'11px', fontWeight:'700', marginTop:'3px' }}>
+                                ₹{Number(student.amount).toLocaleString('en-IN')}
+                                {Number(student.locker_amount) > 0 && <span style={{ color:'#67e8f9' }}> +₹{Number(student.locker_amount).toLocaleString('en-IN')}</span>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
