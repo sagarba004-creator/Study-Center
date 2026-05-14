@@ -2,7 +2,7 @@
 import { SeatWithStudent } from '@/lib/types'
 
 interface Props {
-  seatsData: SeatWithStudent[]
+  seatsData: (SeatWithStudent & { _dimmed?: boolean })[]
   onSeatClick: (seat: SeatWithStudent) => void
 }
 
@@ -13,16 +13,18 @@ const STATUS_STYLE: Record<string, React.CSSProperties> = {
   overdue:    { background: 'rgba(239,68,68,0.6)', border: '2px solid rgba(239,68,68,0.8)', color: '#fff' },
 }
 
-function S({ n, seatsData, onSeatClick }: { n: number; seatsData: SeatWithStudent[]; onSeatClick: (s: SeatWithStudent) => void }) {
+function S({ n, seatsData, onSeatClick }: { n: number; seatsData: (SeatWithStudent & { _dimmed?: boolean })[]; onSeatClick: (s: SeatWithStudent) => void }) {
   const seat = seatsData.find(s => s.seat_number === n) || { block: 2 as const, seat_number: n, status: 'vacant' as const }
+  const dimmed = (seat as any)._dimmed
   return (
-    <div onClick={() => onSeatClick(seat)}
+    <div onClick={() => !dimmed && onSeatClick(seat)}
       title={seat.student?.name || `Seat ${n} (Vacant)`}
       style={{
         ...STATUS_STYLE[seat.status], width: '38px', height: '34px', borderRadius: '6px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0,
+        fontSize: '11px', fontWeight: 'bold', cursor: dimmed ? 'default' : 'pointer', flexShrink: 0,
         transition: 'transform 0.1s', userSelect: 'none',
+        opacity: dimmed ? 0.2 : 1,
       }}
       onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
       onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}

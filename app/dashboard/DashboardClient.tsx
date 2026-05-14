@@ -41,6 +41,7 @@ export default function DashboardClient() {
   const [oldStudents, setOldStudents]           = useState<Student[]>([])
   const [loading, setLoading]                   = useState(true)
   const [search, setSearch]                     = useState('')
+  const [statusFilter, setStatusFilter]         = useState<string | null>(null)
   const [selectedSeat, setSelectedSeat]         = useState<SeatWithStudent | null>(null)
   const [showForm, setShowForm]                 = useState(false)
   const [showFlexibleForm, setShowFlexibleForm] = useState(false)
@@ -104,13 +105,18 @@ export default function DashboardClient() {
     setSelectedSeat(seat); setShowForm(false); setEditingStudent(null)
   }
 
-  const filtered = students.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.exam.toLowerCase().includes(search.toLowerCase()) ||
-    s.college.toLowerCase().includes(search.toLowerCase()) ||
-    String(s.seat_number).includes(search) ||
-    (s.phone && s.phone.includes(search))
-  )
+  const filtered = students.filter(s => {
+    if (statusFilter && getSeatStatus(s) !== statusFilter) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return s.name.toLowerCase().includes(q) ||
+        s.exam.toLowerCase().includes(q) ||
+        s.college.toLowerCase().includes(q) ||
+        String(s.seat_number).includes(search) ||
+        (s.phone && s.phone.includes(search))
+    }
+    return true
+  })
 
   const tabs: { key: Tab; label: string; emoji: string; allowedRoles: Role[] }[] = [
     { key:'block1',    label:'Block 1',      emoji:'🏠', allowedRoles:['admin','staff','viewer'] },
@@ -158,7 +164,7 @@ export default function DashboardClient() {
       {/* BOTTOM TAB BAR — mobile style */}
       <div style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:40, background:'rgba(15,23,42,0.97)', backdropFilter:'blur(16px)', borderTop:'1px solid rgba(255,255,255,0.08)', padding:'8px 4px 12px', display:'flex', justifyContent:'space-around' }}>
         {tabs.filter(t => t.allowedRoles.includes(role)).map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
+          <button key={t.key} onClick={() => { setTab(t.key); setStatusFilter(null) }}
             style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', padding:'6px 12px', borderRadius:'12px', border:'none', cursor:'pointer', fontFamily:'inherit', background: tab === t.key ? 'rgba(99,102,241,0.2)' : 'transparent', transition:'all 0.15s', minWidth:'48px' }}>
             <span style={{ fontSize:'18px', lineHeight:1 }}>{t.emoji}</span>
             <span style={{ fontSize:'9px', fontWeight:'700', color: tab === t.key ? '#a5b4fc' : '#475569', whiteSpace:'nowrap' }}>{t.label}</span>
@@ -192,20 +198,30 @@ export default function DashboardClient() {
               ))}
             </div>
 
-            {/* LEGEND */}
-            {(tab === 'block1' || tab === 'block2') && (
+            {/* LEGEND — clickable filters */}
+            {(tab === 'block1' || tab === 'block2' || tab === 'students') && (
               <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'12px' }}>
                 {[
-                  { label:'Vacant',   color:'#4ade80', bg:'rgba(34,197,94,0.12)'   },
-                  { label:'Occupied', color:'#f9a8d4', bg:'rgba(249,168,212,0.12)' },
-                  { label:'Due Soon', color:'#fde047', bg:'rgba(253,224,71,0.12)'  },
-                  { label:'Overdue',  color:'#f87171', bg:'rgba(239,68,68,0.12)'   },
-                ].map(l => (
-                  <div key={l.label} style={{ display:'flex', alignItems:'center', gap:'5px', padding:'4px 8px', borderRadius:'20px', background:l.bg }}>
-                    <div style={{ width:'8px', height:'8px', borderRadius:'2px', background:l.color }} />
-                    <span style={{ fontSize:'10px', fontWeight:'700', color:l.color }}>{l.label}</span>
-                  </div>
-                ))}
+                  { label:'Vacant',   key:'vacant',   color:'#4ade80', bg:'rgba(34,197,94,0.12)',    activeBg:'rgba(34,197,94,0.3)'    },
+                  { label:'Occupied', key:'occupied', color:'#f9a8d4', bg:'rgba(249,168,212,0.12)',  activeBg:'rgba(249,168,212,0.3)'  },
+                  { label:'Due Soon', key:'due-soon', color:'#fde047', bg:'rgba(253,224,71,0.12)',   activeBg:'rgba(253,224,71,0.3)'   },
+                  { label:'Overdue',  key:'overdue',  color:'#f87171', bg:'rgba(239,68,68,0.12)',    activeBg:'rgba(239,68,68,0.3)'    },
+                ].map(l => {
+                  const isActive = statusFilter === l.key
+                  return (
+                    <button key={l.key} onClick={() => setStatusFilter(isActive ? null : l.key)}
+                      style={{ display:'flex', alignItems:'center', gap:'5px', padding:'5px 10px', borderRadius:'20px', background: isActive ? l.activeBg : l.bg, border:`1.5px solid ${isActive ? l.color : 'transparent'}`, cursor:'pointer', fontFamily:'inherit', transition:'all 0.15s' }}>
+                      <div style={{ width:'8px', height:'8px', borderRadius:'2px', background:l.color }} />
+                      <span style={{ fontSize:'10px', fontWeight:'700', color:l.color }}>{l.label}</span>
+                      {isActive && <span style={{ fontSize:'9px', color:l.color, opacity:0.7 }}>✕</span>}
+                    </button>
+                  )
+                })}
+                {statusFilter && (
+                  <button onClick={() => setStatusFilter(null)} style={{ padding:'5px 10px', borderRadius:'20px', background:'rgba(255,255,255,0.05)', border:'1.5px solid rgba(255,255,255,0.1)', cursor:'pointer', fontFamily:'inherit', color:'#64748b', fontSize:'10px', fontWeight:'700' }}>
+                    Clear filter
+                  </button>
+                )}
               </div>
             )}
 
@@ -222,14 +238,14 @@ export default function DashboardClient() {
             {tab === 'block1' && (
               <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
                 <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏠 Block 1</div>
-                <Block1Grid seatsData={b1Seats} onSeatClick={handleSeatClick} />
+                <Block1Grid seatsData={statusFilter ? b1Seats.map(s => ({ ...s, _dimmed: s.status !== statusFilter })) : b1Seats} onSeatClick={handleSeatClick} />
                 <LockerGrid students={students} canEdit={canEdit} isAdmin={isAdmin} onLockerClick={(num, student) => setLockerDetail({ num, student })} />
               </div>
             )}
             {tab === 'block2' && (
               <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
                 <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏢 Block 2</div>
-                <Block2Grid seatsData={b2Seats} onSeatClick={handleSeatClick} />
+                <Block2Grid seatsData={statusFilter ? b2Seats.map(s => ({ ...s, _dimmed: s.status !== statusFilter })) : b2Seats} onSeatClick={handleSeatClick} />
               </div>
             )}
 
