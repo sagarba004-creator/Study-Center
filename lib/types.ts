@@ -112,3 +112,31 @@ export const STATUS_COLORS = {
   'due-soon': { bg: 'bg-amber-200', border: 'border-amber-400', text: 'text-amber-900', dot: 'bg-amber-500' },
   overdue: { bg: 'bg-red-500', border: 'border-red-700', text: 'text-white', dot: 'bg-red-800' },
 }
+
+export interface Locker {
+  id: string
+  locker_number: number
+  is_active: boolean
+}
+
+export interface StudentLocker {
+  id: string
+  student_id: string
+  locker_number: number
+  amount: number
+  account: string
+  assigned_date: string
+  due_date: string
+  is_active: boolean
+  vacated_at: string | null
+  created_at: string
+  // Joined
+  student?: Student
+}
+
+export type LockerStatus = 'vacant' | 'occupied' | 'due-soon' | 'overdue'
+
+export function getLockerStatus(assignment: StudentLocker | undefined): LockerStatus {
+  if (!assignment || !assignment.is_active) return 'vacant'
+  return getSeatStatus({ due_date: assignment.due_date } as Student) as LockerStatus
+}

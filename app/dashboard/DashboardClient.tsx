@@ -8,6 +8,7 @@ import Block2Grid from '@/components/Block2Grid'
 import SeatModal from '@/components/SeatModal'
 import StudentForm from '@/components/StudentForm'
 import Analytics from '@/components/Analytics'
+import LockerGrid from '@/components/LockerGrid'
 
 type Tab = 'block1' | 'block2' | 'students' | 'analytics' | 'history'
 type Role = 'admin' | 'staff' | 'viewer'
@@ -221,6 +222,7 @@ export default function DashboardClient() {
               <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
                 <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏠 Block 1</div>
                 <Block1Grid seatsData={b1Seats} onSeatClick={handleSeatClick} />
+                <LockerGrid students={students} canEdit={canEdit} isAdmin={isAdmin} onRefresh={loadStudents} />
               </div>
             )}
             {tab === 'block2' && (
