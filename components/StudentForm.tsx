@@ -67,6 +67,19 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   const supabase = createClient()
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState('')
+  const [occupiedLockers, setOccupiedLockers] = useState<number[]>([])
+
+  useEffect(() => {
+    // Load lockers taken by other active students
+    supabase.from('students').select('id, locker_numbers').eq('is_active', true)
+      .then(({ data }) => {
+        if (!data) return
+        const taken = data
+          .filter(s => s.id !== student?.id)
+          .flatMap((s: { locker_numbers: number[] }) => s.locker_numbers || [])
+        setOccupiedLockers(taken)
+      })
+  }, [])
   const [mode, setMode]               = useState<'new' | 'returning'>('new')
   const [oldStudentSearch, setOldStudentSearch] = useState('')
   const [oldStudents, setOldStudents] = useState<Student[]>([])
@@ -88,6 +101,9 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
     due_date:                student?.due_date || '',
     security_deposit:        student?.security_deposit ?? 300,
     security_deposit_status: student?.security_deposit_status || 'collected',
+    locker_numbers:          (student?.locker_numbers || []) as number[],
+    locker_amount:           student?.locker_amount || 0,
+    locker_account:          student?.locker_account || '',
   })
 
   // Recalc due date whenever joining_date or duration changes
@@ -97,6 +113,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   }, [form.joining_date, form.duration])
 
   const set = (k: string, v: string | number) => setForm(f => ({ ...f, [k]: v }))
+  const setArr = (k: string, v: number[]) => setForm(f => ({ ...f, [k]: v }))
 
   // Search old (inactive) students
   useEffect(() => {
@@ -158,6 +175,9 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
       joining_date:            form.joining_date,
       due_date:                form.due_date,
       security_deposit:        Number(form.security_deposit),
+      locker_numbers:          form.locker_numbers,
+      locker_amount:           Number(form.locker_amount),
+      locker_account:          form.locker_numbers.length > 0 ? (form.locker_account || form.account) : null,
       security_deposit_status: form.security_deposit_status,
       block,
       is_active:   true,
@@ -348,6 +368,74 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
                 ? `💡 ₹${Number(form.security_deposit).toLocaleString('en-IN')} collected — refund/forfeit handled at vacating`
                 : 'No deposit collected for this student'}
             </div>
+          </div>
+
+          {/* Lockers */}
+          <div style={{ background:'rgba(99,102,241,0.07)', borderRadius:'12px', padding:'14px 16px', border:'1px solid rgba(99,102,241,0.2)' }}>
+            <div style={{ color:'#a5b4fc', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'10px' }}>
+              🔒 Locker Assignment
+              <span style={{ color:'#475569', fontWeight:'500', marginLeft:'6px', textTransform:'none', letterSpacing:'normal' }}>(optional)</span>
+            </div>
+
+            {/* Locker grid picker */}
+            <div style={{ marginBottom:'10px' }}>
+              <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'8px' }}>
+                Select Lockers ({form.locker_numbers.length} selected)
+              </label>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:'5px' }}>
+                {Array.from({ length: 30 }, (_, i) => i + 1).map(n => {
+                  const isTaken    = occupiedLockers.includes(n)
+                  const isSelected = form.locker_numbers.includes(n)
+                  return (
+                    <button key={n} type="button"
+                      disabled={isTaken && !isSelected}
+                      onClick={() => {
+                        const nums = form.locker_numbers
+                        setArr('locker_numbers', isSelected ? nums.filter((x: number) => x !== n) : [...nums, n])
+                      }}
+                      style={{
+                        width:'38px', height:'34px', borderRadius:'7px', fontSize:'11px', fontWeight:'800',
+                        fontFamily:"'Sora', sans-serif", cursor: isTaken && !isSelected ? 'not-allowed' : 'pointer',
+                        border: isSelected ? '2px solid rgba(99,102,241,0.8)' : isTaken ? '2px solid rgba(255,255,255,0.05)' : '2px solid rgba(255,255,255,0.12)',
+                        background: isSelected ? 'rgba(99,102,241,0.3)' : isTaken ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.06)',
+                        color: isSelected ? '#a5b4fc' : isTaken ? '#334155' : '#94a3b8',
+                        transition:'all 0.1s',
+                      }}>
+                      {n}
+                    </button>
+                  )
+                })}
+              </div>
+              {form.locker_numbers.length > 0 && (
+                <div style={{ marginTop:'6px', color:'#a5b4fc', fontSize:'11px', fontWeight:'600' }}>
+                  Selected: {form.locker_numbers.sort((a: number, b: number) => a - b).join(', ')}
+                </div>
+              )}
+            </div>
+
+            {/* Amount + account — only show if lockers selected */}
+            {form.locker_numbers.length > 0 && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                <div>
+                  <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Locker Fees (₹) *</label>
+                  <input type="number" min={0} value={form.locker_amount}
+                    onChange={e => set('locker_amount', e.target.value)} placeholder="0"
+                    style={{ ...inp }} />
+                </div>
+                <div>
+                  <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Account</label>
+                  <select value={form.locker_account || form.account}
+                    onChange={e => set('locker_account', e.target.value)}
+                    style={{ ...inp, cursor:'pointer' }}>
+                    {['Account 1','Account 2','Cash','UPI','Other'].map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {form.locker_numbers.length === 0 && (
+              <div style={{ color:'#475569', fontSize:'11px' }}>Tap locker numbers above to assign. Grey = already taken.</div>
+            )}
           </div>
 
           {error && (

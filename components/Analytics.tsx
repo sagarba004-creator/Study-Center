@@ -208,6 +208,7 @@ export default function Analytics() {
 
   const allStudents       = [...students, ...oldStudents]
   const totalRevenue      = allStudents.reduce((s, st) => s + Number(st.amount), 0)
+  const totalLockerRev    = allStudents.filter(s => (s.locker_numbers || []).length > 0).reduce((s, st) => s + Number(st.locker_amount || 0), 0)
   const totalFeeRefunds   = allStudents.reduce((s, st) => s + Number(st.refund_amount || 0), 0)
   const netRevenue        = totalRevenue - totalFeeRefunds
   const depositsHeld      = students.filter(s => s.security_deposit_status === 'collected').reduce((s, st) => s + Number(st.security_deposit), 0)
@@ -288,6 +289,7 @@ export default function Analytics() {
       {/* Summary cards */}
       <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
         {card('💰', 'Total Fees',         `₹${totalRevenue.toLocaleString('en-IN')}`,      '#4ade80')}
+        {totalLockerRev > 0 && card('🔒', 'Locker Revenue', `₹${totalLockerRev.toLocaleString('en-IN')}`, '#67e8f9')}
         {totalFeeRefunds > 0 && card('↩️', 'Fee Refunds',  `₹${totalFeeRefunds.toLocaleString('en-IN')}`, '#f87171', 'outflow')}
         {totalFeeRefunds > 0 && card('💵', 'Net Revenue',  `₹${netRevenue.toLocaleString('en-IN')}`,      '#4ade80', 'after refunds')}
         {card('👥', 'Active Students',    String(students.length),                          '#a5b4fc')}

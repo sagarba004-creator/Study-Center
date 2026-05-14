@@ -46,6 +46,7 @@ export default function DashboardClient() {
   const [showFlexibleForm, setShowFlexibleForm] = useState(false)
   const [editingStudent, setEditingStudent]     = useState<Student | null>(null)
   const [oldSelectedStudent, setOldSelectedStudent] = useState<Student | null>(null)
+  const [lockerDetail, setLockerDetail] = useState<{ num: number; student: Student | null } | null>(null)
 
   const isAdmin   = role === 'admin'
   const canEdit   = role === 'admin' || role === 'staff'
@@ -222,7 +223,7 @@ export default function DashboardClient() {
               <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
                 <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏠 Block 1</div>
                 <Block1Grid seatsData={b1Seats} onSeatClick={handleSeatClick} />
-                <LockerGrid students={students} canEdit={canEdit} isAdmin={isAdmin} onRefresh={loadStudents} />
+                <LockerGrid students={students} canEdit={canEdit} isAdmin={isAdmin} onLockerClick={(num, student) => setLockerDetail({ num, student })} />
               </div>
             )}
             {tab === 'block2' && (
@@ -413,6 +414,78 @@ export default function DashboardClient() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOCKER DETAIL MODAL */}
+      {lockerDetail && (
+        <div className="modal-backdrop" onClick={() => setLockerDetail(null)}>
+          <div onClick={e => e.stopPropagation()} className="animate-slideUp" style={{
+            width:'100%', maxWidth:'360px', background:'#1e293b', borderRadius:'20px',
+            border:'1.5px solid rgba(255,255,255,0.1)', boxShadow:'0 40px 80px rgba(0,0,0,0.6)',
+            overflow:'hidden', fontFamily:"'Nunito', sans-serif"
+          }}>
+            <div style={{ padding:'16px 18px 14px', background:'linear-gradient(135deg,#1e293b,#0f172a)', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div>
+                <div style={{ color:'#475569', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.1em' }}>Locker</div>
+                <div style={{ fontSize:'22px', fontWeight:'800', color:'#f1f5f9', fontFamily:"'Sora', sans-serif" }}>#{lockerDetail.num}</div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                <span style={{ padding:'4px 12px', borderRadius:'20px', fontSize:'11px', fontWeight:'700', background: lockerDetail.student ? 'rgba(249,168,212,0.15)' : 'rgba(34,197,94,0.15)', color: lockerDetail.student ? '#f9a8d4' : '#4ade80', border: `1px solid ${lockerDetail.student ? 'rgba(249,168,212,0.3)' : 'rgba(34,197,94,0.3)'}` }}>
+                  {lockerDetail.student ? 'Occupied' : 'Vacant'}
+                </span>
+                <button onClick={() => setLockerDetail(null)} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'7px', width:'28px', height:'28px', cursor:'pointer', color:'#94a3b8', fontSize:'16px' }}>×</button>
+              </div>
+            </div>
+
+            <div style={{ padding:'14px 18px 18px' }}>
+              {!lockerDetail.student ? (
+                <div style={{ textAlign:'center', padding:'16px 0' }}>
+                  <div style={{ fontSize:'32px', marginBottom:'8px' }}>🔓</div>
+                  <div style={{ color:'#64748b', fontSize:'13px', marginBottom:'12px' }}>Available — assign via student form</div>
+                  <button onClick={() => setLockerDetail(null)} style={{ padding:'8px 20px', borderRadius:'9px', border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:'#64748b', fontSize:'12px', cursor:'pointer', fontFamily:'inherit' }}>Close</button>
+                </div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                  {/* Student */}
+                  <div style={{ display:'flex', alignItems:'center', gap:'10px', background:'rgba(255,255,255,0.04)', padding:'10px 12px', borderRadius:'11px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                    <div style={{ width:'36px', height:'36px', borderRadius:'9px', background:'linear-gradient(135deg,#6366f1,#ec4899)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'15px', color:'white', flexShrink:0 }}>
+                      {lockerDetail.student.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight:'700', color:'#f1f5f9', fontSize:'14px' }}>{lockerDetail.student.name}</div>
+                      <div style={{ color:'#64748b', fontSize:'11px' }}>{lockerDetail.student.phone || ''} · B{lockerDetail.student.block}{lockerDetail.student.seat_number ? `, Seat ${lockerDetail.student.seat_number}` : ''}</div>
+                    </div>
+                  </div>
+                  {/* Due + financials */}
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+                    {[
+                      { icon:'📅', label:'Due Date', value: new Date(lockerDetail.student.due_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) },
+                      ...(canEdit ? [
+                        { icon:'💰', label:'Amount', value: `₹${Number(lockerDetail.student.locker_amount).toLocaleString('en-IN')}` },
+                        { icon:'🏦', label:'Account', value: lockerDetail.student.locker_account || lockerDetail.student.account },
+                        { icon:'🔒', label:'All Lockers', value: (lockerDetail.student.locker_numbers || []).sort((a: number,b: number)=>a-b).map((n: number) => `#${n}`).join(', ') },
+                      ] : []),
+                    ].map(({ icon, label, value }) => (
+                      <div key={label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:'9px', padding:'10px 12px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                        <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'3px' }}>{icon} {label}</div>
+                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'600' }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {canEdit && (
+                    <button onClick={() => {
+                      setLockerDetail(null)
+                      const seat: any = { block: lockerDetail.student!.block, seat_number: lockerDetail.student!.seat_number, student: lockerDetail.student, status: 'occupied' }
+                      setSelectedSeat(seat)
+                    }} style={{ padding:'10px', borderRadius:'10px', border:'1px solid rgba(99,102,241,0.35)', background:'rgba(99,102,241,0.1)', color:'#a5b4fc', fontSize:'12px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>
+                      ✏️ Edit Student to Change Lockers
+                    </button>
+                  )}
                 </div>
               )}
             </div>

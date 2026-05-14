@@ -229,6 +229,21 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                     <InfoBox icon="🏦" label="Account"      value={student.account} />
                     <InfoBox icon="📅" label="Payment Date" value={format(new Date(student.payment_date), 'dd MMM yyyy')} />
                   </div>
+                  {/* Lockers */}
+                  {student.locker_numbers && student.locker_numbers.length > 0 && (
+                    <div style={{ background:'rgba(99,102,241,0.08)', borderRadius:'10px', padding:'12px 14px', border:'1px solid rgba(99,102,241,0.2)' }}>
+                      <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'6px' }}>🔒 Lockers Assigned</div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:'5px', marginBottom:'6px' }}>
+                        {student.locker_numbers.sort((a: number,b: number) => a-b).map((n: number) => (
+                          <span key={n} style={{ padding:'3px 10px', borderRadius:'6px', background:'rgba(99,102,241,0.2)', border:'1px solid rgba(99,102,241,0.4)', color:'#a5b4fc', fontSize:'12px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>#{n}</span>
+                        ))}
+                      </div>
+                      <div style={{ color:'#64748b', fontSize:'11px' }}>
+                        ₹{Number(student.locker_amount).toLocaleString('en-IN')} · {student.locker_account || student.account}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Security Deposit */}
                   {student.security_deposit > 0 && (
                     <div style={{ background: student.security_deposit_status === 'collected' ? 'rgba(251,191,36,0.08)' : student.security_deposit_status === 'refunded' ? 'rgba(99,102,241,0.08)' : 'rgba(239,68,68,0.08)', borderRadius:'10px', padding:'12px 14px', border:`1px solid ${student.security_deposit_status === 'collected' ? 'rgba(251,191,36,0.2)' : student.security_deposit_status === 'refunded' ? 'rgba(99,102,241,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
