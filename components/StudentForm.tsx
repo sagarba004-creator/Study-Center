@@ -197,6 +197,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
 
   const exams    = ['UPSC','MPSC','NEET','JEE','CA','CET','Banking','Railway','SSC','GATE','IAS','IPS','Other']
   const accounts = ['Account 1','Account 2','Cash','UPI','Other']
+  const isEdit   = !!student?.id
   const flexible = isFlexible || !seatNumber
 
   return (
