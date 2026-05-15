@@ -4,86 +4,33 @@ import { createClient } from '@/lib/supabase/client'
 import { Student } from '@/lib/types'
 import { format } from 'date-fns'
 
-// ── Donut Chart ──────────────────────────────────────────────────────────────
-function DonutChart({ slices, size = 160 }: {
-  slices: { label: string; value: number; color: string }[]
-  size?: number
-}) {
-  const total  = slices.reduce((s, x) => s + x.value, 0)
-  if (total === 0) return null
-  const r      = 54
-  const cx     = size / 2
-  const cy     = size / 2
-  const stroke = 22
-  let offset   = -90 // start from top
-
-  const arcs = slices.map(sl => {
-    const pct   = sl.value / total
-    const deg   = pct * 360
-    const rad   = (a: number) => (a * Math.PI) / 180
-    const x1    = cx + r * Math.cos(rad(offset))
-    const y1    = cy + r * Math.sin(rad(offset))
-    const x2    = cx + r * Math.cos(rad(offset + deg))
-    const y2    = cy + r * Math.sin(rad(offset + deg))
-    const large = deg > 180 ? 1 : 0
-    const path  = `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`
-    const mid   = offset + deg / 2
-    offset     += deg
-    return { ...sl, path, pct, mid }
-  })
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {arcs.map((arc, i) => (
-        <path key={i} d={arc.path} fill="none" stroke={arc.color}
-          strokeWidth={stroke} strokeLinecap="butt"
-          style={{ transition:'all 0.4s ease', filter:`drop-shadow(0 0 6px ${arc.color}66)` }} />
-      ))}
-      {/* Center total */}
-      <text x={cx} y={cy - 6} textAnchor="middle" fill="#f1f5f9" fontSize="14" fontWeight="800" fontFamily="'Sora', sans-serif">
-        ₹{(total/1000).toFixed(1)}k
-      </text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fill="#64748b" fontSize="9" fontWeight="600">
-        TOTAL
-      </text>
-    </svg>
-  )
-}
-
-// ── Vertical Bar Chart ───────────────────────────────────────────────────────
+// ── Bar Chart ─────────────────────────────────────────────────────────────────
 function BarChart({ bars, height = 160 }: {
   bars: { label: string; value: number; sublabel?: string; color?: string }[]
   height?: number
 }) {
   const max = Math.max(...bars.map(b => b.value), 1)
   const [hovered, setHovered] = useState<number | null>(null)
-
   return (
     <div style={{ display:'flex', alignItems:'flex-end', gap:'8px', height:`${height}px`, padding:'0 4px' }}>
       {bars.map((bar, i) => {
-        const pct    = (bar.value / max) * 100
-        const isHov  = hovered === i
-        const color  = bar.color || '#6366f1'
+        const pct   = (bar.value / max) * 100
+        const isHov = hovered === i
+        const color = bar.color || '#6366f1'
         return (
           <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', height:'100%', justifyContent:'flex-end' }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
-            {/* Tooltip */}
             {isHov && (
-              <div style={{ position:'absolute', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'8px', padding:'6px 10px', fontSize:'12px', fontWeight:'700', color:'#f1f5f9', whiteSpace:'nowrap', zIndex:10, marginBottom:'4px', pointerEvents:'none', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+              <div style={{ position:'absolute', background:'#1e293b', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'8px', padding:'6px 10px', fontSize:'12px', fontWeight:'700', color:'#f1f5f9', whiteSpace:'nowrap', zIndex:10, pointerEvents:'none', boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
                 ₹{bar.value.toLocaleString('en-IN')}
-                {bar.sublabel && <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'500' }}>{bar.sublabel}</div>}
+                {bar.sublabel && <div style={{ color:'#64748b', fontSize:'10px' }}>{bar.sublabel}</div>}
               </div>
             )}
-            {/* Bar */}
-            <div style={{ width:'100%', borderRadius:'6px 6px 0 0', transition:'all 0.4s ease', position:'relative', cursor:'pointer',
+            <div style={{ width:'100%', borderRadius:'6px 6px 0 0', transition:'all 0.4s ease', cursor:'pointer',
               height:`${Math.max(pct, 3)}%`,
-              background: isHov ? `linear-gradient(180deg, ${color}, ${color}99)` : `linear-gradient(180deg, ${color}cc, ${color}66)`,
-              boxShadow: isHov ? `0 0 16px ${color}66` : 'none',
-            }} />
-            {/* Label */}
-            <div style={{ fontSize:'10px', color: isHov ? '#e2e8f0' : '#64748b', fontWeight:'600', textAlign:'center', lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>
-              {bar.label}
-            </div>
+              background: isHov ? `linear-gradient(180deg,${color},${color}99)` : `linear-gradient(180deg,${color}cc,${color}66)`,
+              boxShadow: isHov ? `0 0 16px ${color}66` : 'none' }} />
+            <div style={{ fontSize:'10px', color: isHov ? '#e2e8f0' : '#64748b', fontWeight:'600', textAlign:'center', lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>{bar.label}</div>
           </div>
         )
       })}
@@ -91,7 +38,7 @@ function BarChart({ bars, height = 160 }: {
   )
 }
 
-// ── ProjectionMonth ──────────────────────────────────────────────────────────
+// ── ProjectionMonth ───────────────────────────────────────────────────────────
 function ProjectionMonth({ label, students, estimated, isCurrentMonth }: {
   label: string; students: Student[]; estimated: number; isCurrentMonth: boolean
 }) {
@@ -104,7 +51,7 @@ function ProjectionMonth({ label, students, estimated, isCurrentMonth }: {
   )
   return (
     <div>
-      <div onClick={() => setOpen(o => !o)} style={{ padding:'12px 14px', borderRadius:'12px', background: isCurrentMonth ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.03)', border:`1px solid ${isCurrentMonth ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'}`, cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <div onClick={() => setOpen(o => !o)} style={{ padding:'12px 14px', borderRadius:'12px', background: isCurrentMonth ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.03)', border:`1px solid ${isCurrentMonth ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'}`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div>
           <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
             <span style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700' }}>{label}</span>
@@ -121,25 +68,14 @@ function ProjectionMonth({ label, students, estimated, isCurrentMonth }: {
         </div>
       </div>
       {open && (
-        <div style={{ marginTop:'6px', marginLeft:'8px', display:'flex', flexDirection:'column', gap:'6px', animation:'fadeIn 0.2s ease' }}>
+        <div style={{ marginTop:'6px', marginLeft:'8px', display:'flex', flexDirection:'column', gap:'6px' }}>
           {students.sort((a,b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).map(s => (
-            <div key={s.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:'10px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                <div style={{ width:'32px', height:'32px', borderRadius:'8px', background:'rgba(99,102,241,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'13px', color:'#a5b4fc', flexShrink:0 }}>
-                  {s.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'600' }}>{s.name}</div>
-                  <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>
-                    {s.exam} · Block {s.block}{s.seat_number ? `, Seat ${s.seat_number}` : ' (Flexible)'}
-                    · Due {new Date(s.due_date).toLocaleDateString('en-IN', { day:'numeric', month:'short' })}
-                  </div>
-                </div>
+            <div key={s.id} style={{ display:'flex', justifyContent:'space-between', padding:'10px 12px', borderRadius:'10px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
+              <div>
+                <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{s.name}</div>
+                <div style={{ color:'#64748b', fontSize:'10px' }}>B{s.block}{s.seat_number ? ` · Seat ${s.seat_number}` : ''} · Due {format(new Date(s.due_date), 'dd MMM')}</div>
               </div>
-              <div style={{ textAlign:'right', flexShrink:0 }}>
-                <div style={{ color:'#a5b4fc', fontWeight:'700', fontSize:'13px' }}>~₹{Number(s.amount).toLocaleString('en-IN')}</div>
-                <div style={{ color:'#475569', fontSize:'10px' }}>last paid</div>
-              </div>
+              <div style={{ color:'#a5b4fc', fontWeight:'800', fontSize:'13px' }}>₹{Number(s.amount).toLocaleString('en-IN')}</div>
             </div>
           ))}
         </div>
@@ -148,46 +84,32 @@ function ProjectionMonth({ label, students, estimated, isCurrentMonth }: {
   )
 }
 
-// ── TxRow ────────────────────────────────────────────────────────────────────
-function TxRow({ student, type }: { student: Student; type: 'credit' | 'debit' | 'deposit' | 'forfeit' | 'feerefund' }) {
-  const colors = {
-    credit:     { color:'#4ade80', label:'Fee Credit',        prefix:'+' },
-    debit:      { color:'#f87171', label:'Deposit Refund',    prefix:'-' },
-    deposit:    { color:'#fde047', label:'Deposit Collected', prefix:'+' },
-    forfeit:    { color:'#fb923c', label:'Deposit Forfeited', prefix:'+' },
-    feerefund:  { color:'#f87171', label:'Fee Refund',        prefix:'-' },
-  }
-  const c      = colors[type]
-  const amount = type === 'credit' ? Number(student.amount)
-    : type === 'feerefund' ? Number(student.refund_amount)
-    : Number(student.security_deposit)
-  const account = type === 'feerefund' ? (student.refund_account || '') : ''
-  const date   = (type === 'debit' || type === 'forfeit') && student.vacated_at
-    ? new Date(student.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
-    : new Date(student.payment_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
+// ── Table helpers ─────────────────────────────────────────────────────────────
+const TH = ({ cols }: { cols: string[] }) => (
+  <div style={{ display:'grid', gridTemplateColumns:`1.2fr ${cols.slice(1).map(() => '1fr').join(' ')}`, gap:'4px', padding:'0 8px', marginBottom:'6px' }}>
+    {cols.map((c, i) => (
+      <div key={c} style={{ color:'#475569', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', textAlign: i === 0 ? 'left' : 'right' }}>{c}</div>
+    ))}
+  </div>
+)
+
+function TR({ label, income, exp, pl, highlight, dimmed }: { label: string; income: number; exp: number; pl: number; highlight?: boolean; dimmed?: boolean }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:'10px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-        <div style={{ width:'32px', height:'32px', borderRadius:'8px', background:`${c.color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'14px', flexShrink:0 }}>
-          {type === 'credit' ? '💳' : type === 'debit' ? '↩️' : type === 'deposit' ? '🔐' : type === 'feerefund' ? '💸' : '❌'}
-        </div>
-        <div>
-          <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'600' }}>{student.name}</div>
-          <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>
-            {c.label}{account ? ` · ${account}` : ''} · Block {student.block}{student.seat_number ? `, Seat ${student.seat_number}` : ' (Flexible)'} · {date}
-          </div>
-        </div>
-      </div>
-      <div style={{ color:c.color, fontWeight:'800', fontSize:'14px', fontFamily:"'Sora', sans-serif", flexShrink:0 }}>
-        {c.prefix}₹{amount.toLocaleString('en-IN')}
+    <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1fr 1fr 1fr', gap:'4px', padding:'9px 8px', borderRadius:'9px',
+      background: highlight ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.02)',
+      border:`1px solid ${highlight ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)'}`,
+      opacity: dimmed ? 0.35 : 1 }}>
+      <div style={{ color: highlight ? '#f1f5f9' : '#94a3b8', fontSize:'13px', fontWeight: highlight ? '800' : '600' }}>{label}</div>
+      <div style={{ textAlign:'right', color: income > 0 ? '#4ade80' : '#334155', fontSize:'13px', fontWeight:'700' }}>{income > 0 ? `₹${income.toLocaleString('en-IN')}` : '—'}</div>
+      <div style={{ textAlign:'right', color: exp > 0 ? '#f87171' : '#334155', fontSize:'13px', fontWeight:'700' }}>{exp > 0 ? `₹${exp.toLocaleString('en-IN')}` : '—'}</div>
+      <div style={{ textAlign:'right', color: pl > 0 ? '#4ade80' : pl < 0 ? '#f87171' : '#475569', fontSize:'13px', fontWeight:'800' }}>
+        {pl !== 0 ? `${pl > 0 ? '+' : ''}₹${pl.toLocaleString('en-IN')}` : '—'}
       </div>
     </div>
   )
 }
 
-// ── Main Analytics ───────────────────────────────────────────────────────────
-const PALETTE = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#06b6d4']
-
+// ── Interfaces ────────────────────────────────────────────────────────────────
 interface Payment {
   id: string; student_id: string; student_name: string
   block: number; seat_number: number | null
@@ -196,23 +118,24 @@ interface Payment {
   duration: string | null; duration_months: number | null
   notes: string | null; created_at: string
 }
-
 interface Expenditure {
   id: string; date: string; amount: number; account: string
   category: string; description: string | null; block: number | null
 }
 
+const PALETTE  = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#06b6d4']
+const ACCOUNTS = ['Account 1','Account 2','Cash','UPI','Other']
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function Analytics() {
-  const [students, setStudents]       = useState<Student[]>([])
-  const [oldStudents, setOldStudents] = useState<Student[]>([])
-  const [payments, setPayments]       = useState<Payment[]>([])
-  const [expenditures, setExpenditures] = useState<Expenditure[]>([])
-  const [plView, setPlView]             = useState<'yearly' | 'monthly'>('yearly')
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
-  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'))
-  const [expandedAccount, setExpandedAccount] = useState<string | null>(null)
-  const [blockFilter, setBlockFilter]         = useState<'all' | 1 | 2>('all')
   const supabase = createClient()
+  const [students,     setStudents]     = useState<Student[]>([])
+  const [oldStudents,  setOldStudents]  = useState<Student[]>([])
+  const [payments,     setPayments]     = useState<Payment[]>([])
+  const [expenditures, setExpenditures] = useState<Expenditure[]>([])
+  const [plView,        setPlView]        = useState<'yearly' | 'monthly'>('yearly')
+  const [selectedYear,  setSelectedYear]  = useState<number>(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'))
 
   useEffect(() => {
     Promise.all([
@@ -228,346 +151,285 @@ export default function Analytics() {
     })
   }, [])
 
-  const allStudentsRaw    = [...students, ...oldStudents]
-  const allStudents       = blockFilter === 'all' ? allStudentsRaw : allStudentsRaw.filter(s => s.block === blockFilter)
-  const filteredActive    = blockFilter === 'all' ? students : students.filter(s => s.block === blockFilter)
+  const allStudents = [...students, ...oldStudents]
+  const nowKey      = format(new Date(), 'yyyy-MM')
+  const getMonthKey = (d: Date) => format(d, 'yyyy-MM')
 
-  // Payments from payments table (source of truth for income)
-  const filteredPayments  = blockFilter === 'all' ? payments : payments.filter(p => p.block === blockFilter)
-  const totalRevenue      = filteredPayments.reduce((s, p) => s + Number(p.amount), 0)
+  // Core P&L calculator — prefix is '2026' (year) or '2026-05' (month)
+  const calcPL = (prefix: string, blockFilter: 'all' | 1 | 2 = 'all') => {
+    const matchPeriod = (dateStr: string | null) => !!(dateStr && dateStr.startsWith(prefix))
+    const blockOk     = (b: number) => blockFilter === 'all' || b === blockFilter
 
-  // Locker revenue still from students table
-  const totalLockerRev    = allStudents.filter(s => (s.locker_numbers || []).length > 0).reduce((s, st) => s + Number(st.locker_amount || 0), 0)
+    const income = payments
+      .filter(p => blockOk(p.block) && matchPeriod(p.payment_date))
+      .reduce((s, p) => s + Number(p.amount), 0)
 
-  // Refunds & deposits still from students table
-  const totalFeeRefunds   = allStudents.reduce((s, st) => s + Number(st.refund_amount || 0), 0)
-  const netRevenue        = totalRevenue - totalFeeRefunds
-  const depositsHeld      = filteredActive.filter(s => s.security_deposit_status === 'collected').reduce((s, st) => s + Number(st.security_deposit), 0)
-  const depositsForfeited = allStudents.filter(s => s.security_deposit_status === 'forfeited').reduce((s, st) => s + Number(st.security_deposit), 0)
-  const depositsRefunded  = allStudents.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
+    const forfeit = allStudents
+      .filter(s => blockOk(s.block) && s.security_deposit_status === 'forfeited' &&
+        matchPeriod((s.vacated_at || s.payment_date || '').slice(0,10)))
+      .reduce((s, st) => s + Number(st.security_deposit), 0)
 
-  // P&L — uses payments + expenditures
-  const filteredExp       = blockFilter === 'all' ? expenditures : expenditures.filter(e => !e.block || e.block === blockFilter)
-  const totalIncome       = totalRevenue + depositsForfeited
-  const totalManualExp    = filteredExp.reduce((s, e) => s + Number(e.amount), 0)
-  const totalExpenditure  = totalManualExp + totalFeeRefunds
-  const profitLoss        = totalIncome - totalExpenditure
-  const isProfit          = profitLoss >= 0
+    const manExp = expenditures
+      .filter(e => (blockFilter === 'all' || !e.block || e.block === blockFilter) && matchPeriod(e.date))
+      .reduce((s, e) => s + Number(e.amount), 0)
 
-  // Account breakdown from payments table
-  const byAccount: Record<string, Payment[]> = {}
-  filteredPayments.forEach(p => {
-    if (!byAccount[p.account]) byAccount[p.account] = []
-    byAccount[p.account].push(p)
-  })
-  const accountEntries = Object.entries(byAccount)
-  const donutSlices = accountEntries.map(([acc, pmts], i) => ({
-    label: acc,
-    value: pmts.reduce((s, p) => s + Number(p.amount), 0),
-    color: PALETTE[i % PALETTE.length],
-  }))
+    const refunds = allStudents
+      .filter(s => blockOk(s.block) && Number(s.refund_amount) > 0 &&
+        matchPeriod((s.refund_date || s.vacated_at || s.payment_date || '').slice(0,10)))
+      .reduce((s, st) => s + Number(st.refund_amount), 0)
 
-  // P&L table helpers
-  const getMonthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-  const nowKey = getMonthKey(new Date())
-
-  // Get all years that have data
-  const allYears = Array.from(new Set([
-    ...filteredPayments.map(p => new Date(p.payment_date).getFullYear()),
-    ...filteredExp.map(e => new Date(e.date).getFullYear()),
-    ...allStudents.filter(s => Number(s.refund_amount) > 0).map(s => new Date(s.refund_date || s.vacated_at || s.payment_date).getFullYear()),
-  ])).sort((a, b) => b - a)
-
-  // Compute income/exp/pl for a given month key
-  const getMonthPL = (monthKey: string) => {
-    const income = filteredPayments.filter(p => getMonthKey(new Date(p.payment_date)) === monthKey).reduce((s, p) => s + Number(p.amount), 0)
-    const forfeit = allStudents.filter(s => s.security_deposit_status === 'forfeited' && getMonthKey(new Date(s.vacated_at || s.payment_date)) === monthKey).reduce((s, st) => s + Number(st.security_deposit), 0)
-    const manExp  = filteredExp.filter(e => getMonthKey(new Date(e.date)) === monthKey).reduce((s, e) => s + Number(e.amount), 0)
-    const refunds = allStudents.filter(s => Number(s.refund_amount) > 0 && getMonthKey(new Date(s.refund_date || s.vacated_at || s.payment_date)) === monthKey).reduce((s, st) => s + Number(st.refund_amount), 0)
     const totalIn  = income + forfeit
     const totalOut = manExp + refunds
-    return { income: totalIn, expenditure: totalOut, pl: totalIn - totalOut }
+    return { income: totalIn, exp: totalOut, pl: totalIn - totalOut }
   }
 
-  // Yearly rows: 12 months for selectedYear
+  const yearPrefix  = String(selectedYear)
+  const monthPrefix = selectedMonth
+
+  // Yearly view data
   const yearlyRows = Array.from({ length: 12 }, (_, i) => {
-    const monthKey = `${selectedYear}-${String(i + 1).padStart(2, '0')}`
-    const { income, expenditure, pl } = getMonthPL(monthKey)
-    return { monthKey, label: format(new Date(monthKey + '-01'), 'MMMM'), income, expenditure, pl }
+    const mk = `${selectedYear}-${String(i+1).padStart(2,'0')}`
+    return { mk, label: format(new Date(mk + '-01'), 'MMMM'), all: calcPL(mk), b1: calcPL(mk, 1), b2: calcPL(mk, 2) }
   })
-  const yearTotal = yearlyRows.reduce((s, r) => ({ income: s.income + r.income, expenditure: s.expenditure + r.expenditure, pl: s.pl + r.pl }), { income: 0, expenditure: 0, pl: 0 })
+  const yearTotal = { all: calcPL(yearPrefix), b1: calcPL(yearPrefix, 1), b2: calcPL(yearPrefix, 2) }
 
-  // Monthly rows: each payment/expense day for selectedMonth
-  const monthlyPayments = filteredPayments.filter(p => getMonthKey(new Date(p.payment_date)) === selectedMonth)
-  const monthlyExp      = filteredExp.filter(e => getMonthKey(new Date(e.date)) === selectedMonth)
-  const monthlyRefunds  = allStudents.filter(s => Number(s.refund_amount) > 0 && getMonthKey(new Date(s.refund_date || s.vacated_at || s.payment_date)) === selectedMonth)
-  const monthlyForfeit  = allStudents.filter(s => s.security_deposit_status === 'forfeited' && getMonthKey(new Date(s.vacated_at || s.payment_date)) === selectedMonth)
-  const monthIncome     = monthlyPayments.reduce((s, p) => s + Number(p.amount), 0) + monthlyForfeit.reduce((s, st) => s + Number(st.security_deposit), 0)
-  const monthExp        = monthlyExp.reduce((s, e) => s + Number(e.amount), 0) + monthlyRefunds.reduce((s, st) => s + Number(st.refund_amount), 0)
-  const monthPL         = monthIncome - monthExp
+  // Monthly view data
+  const monthAccounts = ACCOUNTS.map(acc => {
+    const pmts = payments.filter(p => p.account === acc && p.payment_date.startsWith(monthPrefix))
+    return { acc, income: pmts.reduce((s, p) => s + Number(p.amount), 0), count: pmts.length }
+  }).filter(a => a.income > 0)
 
-  // Projections — still from students due_date
+  const monthBlocks = ([1, 2] as const).map(b => ({ b, ...calcPL(monthPrefix, b) }))
+  const monthTotal  = calcPL(monthPrefix)
+
+  const mPayments = payments.filter(p => p.payment_date.startsWith(monthPrefix))
+  const mExp      = expenditures.filter(e => e.date.startsWith(monthPrefix))
+  const mRefunds  = allStudents.filter(s => Number(s.refund_amount) > 0 && (s.refund_date || s.vacated_at || s.payment_date || '').startsWith(monthPrefix))
+  const mForfeit  = allStudents.filter(s => s.security_deposit_status === 'forfeited' && (s.vacated_at || s.payment_date || '').startsWith(monthPrefix))
+
+  // Projections
   const today = new Date(); today.setHours(0,0,0,0)
   const projectionMonths = Array.from({ length: 3 }, (_, i) => {
-    const d   = new Date(today); d.setMonth(d.getMonth() + i)
+    const d = new Date(today); d.setMonth(d.getMonth() + i)
     const key = getMonthKey(d)
-    const due = filteredActive.filter(s => getMonthKey(new Date(s.due_date)) === key)
+    const due = students.filter(s => getMonthKey(new Date(s.due_date)) === key)
     return { key, label: format(d, 'MMMM yyyy'), students: due, estimated: due.reduce((s, st) => s + Number(st.amount), 0) }
   })
   const totalProjected = projectionMonths.reduce((s, m) => s + m.estimated, 0)
 
-  const card = (emoji: string, label: string, value: string, color: string, sub?: string) => (
-    <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'16px 18px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'130px' }}>
-      <div style={{ fontSize:'20px', marginBottom:'8px' }}>{emoji}</div>
-      <div style={{ fontSize:'20px', fontWeight:'800', color, fontFamily:"'Sora', sans-serif" }}>{value}</div>
-      <div style={{ color:'#64748b', fontSize:'12px', marginTop:'4px', fontWeight:'600' }}>{label}</div>
-      {sub && <div style={{ color:'#475569', fontSize:'11px', marginTop:'2px' }}>{sub}</div>}
-    </div>
-  )
+  const { income: pIncome, exp: pExp, pl: pPL } = plView === 'yearly' ? yearTotal.all : monthTotal
+  const isProfit = pPL >= 0
+  const periodLabel = plView === 'yearly' ? String(selectedYear) : format(new Date(selectedMonth + '-01'), 'MMMM yyyy')
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
 
-      {/* Block filter */}
-      <div style={{ display:'flex', gap:'6px', background:'rgba(255,255,255,0.04)', padding:'5px', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.07)', alignSelf:'flex-start' }}>
-        {([['all','All Blocks'],[ 1,'Block 1'],[ 2,'Block 2']] as const).map(([val, label]) => (
-          <button key={String(val)} onClick={() => { setBlockFilter(val as 'all'|1|2); setExpandedAccount(null) }}
-            style={{ padding:'7px 18px', borderRadius:'8px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'800', fontSize:'13px', transition:'all 0.2s',
-              background: blockFilter === val ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent',
-              color: blockFilter === val ? 'white' : '#64748b' }}>
-            {label}
-          </button>
-        ))}
+      {/* Period selector */}
+      <div style={{ display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:'4px', background:'rgba(255,255,255,0.04)', padding:'4px', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.07)' }}>
+          {(['yearly','monthly'] as const).map(v => (
+            <button key={v} onClick={() => setPlView(v)}
+              style={{ padding:'6px 16px', borderRadius:'7px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'800', fontSize:'13px', transition:'all 0.2s',
+                background: plView === v ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent',
+                color: plView === v ? 'white' : '#64748b' }}>
+              {v === 'yearly' ? 'Yearly' : 'Monthly'}
+            </button>
+          ))}
+        </div>
+        <div style={{ display:'flex', gap:'4px', alignItems:'center' }}>
+          <button onClick={() => setSelectedYear(y => y - 1)}
+            style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color:'#94a3b8', fontSize:'16px' }}>‹</button>
+          <span style={{ color:'#e2e8f0', fontWeight:'800', fontSize:'14px', minWidth:'44px', textAlign:'center' }}>{selectedYear}</span>
+          <button onClick={() => setSelectedYear(y => y + 1)} disabled={selectedYear >= new Date().getFullYear()}
+            style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color: selectedYear >= new Date().getFullYear() ? '#334155' : '#94a3b8', fontSize:'16px' }}>›</button>
+        </div>
+        {plView === 'monthly' && (
+          <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+            style={{ padding:'6px 10px', borderRadius:'8px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'13px', fontFamily:'inherit', outline:'none' }} />
+        )}
       </div>
 
-      {/* P&L Card */}
+      {/* P&L Summary */}
       <div style={{ background: isProfit ? 'rgba(74,222,128,0.06)' : 'rgba(239,68,68,0.06)', borderRadius:'16px', padding:'18px 20px', border:`1.5px solid ${isProfit ? 'rgba(74,222,128,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
         <div style={{ fontWeight:'800', fontSize:'15px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif", marginBottom:'12px' }}>
-          {isProfit ? '📈' : '📉'} Profit & Loss {blockFilter !== 'all' ? `— Block ${blockFilter}` : '— Overall'}
+          {isProfit ? '📈' : '📉'} P&L — {periodLabel}
         </div>
         <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
-          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'12px', padding:'12px 16px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'130px' }}>
-            <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>💰 Income</div>
-            <div style={{ color:'#4ade80', fontSize:'18px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>₹{totalIncome.toLocaleString('en-IN')}</div>
-            <div style={{ color:'#475569', fontSize:'10px', marginTop:'2px' }}>Fees + ₹{depositsForfeited.toLocaleString('en-IN')} forfeited</div>
-          </div>
-          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'12px', padding:'12px 16px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'130px' }}>
-            <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📤 Expenditure</div>
-            <div style={{ color:'#f87171', fontSize:'18px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>₹{totalExpenditure.toLocaleString('en-IN')}</div>
-            <div style={{ color:'#475569', fontSize:'10px', marginTop:'2px' }}>₹{totalManualExp.toLocaleString('en-IN')} ops + ₹{totalFeeRefunds.toLocaleString('en-IN')} refunds</div>
-          </div>
-          <div style={{ background: isProfit ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.08)', borderRadius:'12px', padding:'12px 16px', border:`1.5px solid ${isProfit ? 'rgba(74,222,128,0.2)' : 'rgba(239,68,68,0.2)'}`, flex:1, minWidth:'130px' }}>
-            <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>{isProfit ? '🟢 Net Profit' : '🔴 Net Loss'}</div>
-            <div style={{ color: isProfit ? '#4ade80' : '#f87171', fontSize:'18px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>₹{Math.abs(profitLoss).toLocaleString('en-IN')}</div>
-          </div>
+          {[
+            { label:'💰 Income',      value: pIncome, color:'#4ade80' },
+            { label:'📤 Expenditure', value: pExp,    color:'#f87171' },
+            { label: isProfit ? '🟢 Net Profit' : '🔴 Net Loss', value: Math.abs(pPL), color: isProfit ? '#4ade80' : '#f87171' },
+          ].map(c => (
+            <div key={c.label} style={{ background:'rgba(255,255,255,0.04)', borderRadius:'12px', padding:'12px 16px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'110px' }}>
+              <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>{c.label}</div>
+              <div style={{ color:c.color, fontSize:'18px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>₹{c.value.toLocaleString('en-IN')}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
-        {card('💰', 'Total Fees',         `₹${totalRevenue.toLocaleString('en-IN')}`,      '#4ade80', `${filteredPayments.length} payments`)}
-        {totalLockerRev > 0 && card('🔒', 'Locker Revenue', `₹${totalLockerRev.toLocaleString('en-IN')}`, '#67e8f9')}
-        {totalFeeRefunds > 0 && card('↩️', 'Fee Refunds',  `₹${totalFeeRefunds.toLocaleString('en-IN')}`, '#f87171', 'outflow')}
-        {card('👥', 'Active Students',    String(filteredActive.length),                    '#a5b4fc')}
-        {depositsHeld > 0      && card('🔐', 'Deposits Held',     `₹${depositsHeld.toLocaleString('en-IN')}`,      '#fde047', 'liability')}
-        {depositsForfeited > 0 && card('❌', 'Deposits Forfeited', `₹${depositsForfeited.toLocaleString('en-IN')}`, '#fb923c', 'income')}
-        {depositsRefunded > 0  && card('↩️', 'Deposits Refunded', `₹${depositsRefunded.toLocaleString('en-IN')}`,  '#f87171', 'outflow')}
-      </div>
+      {/* YEARLY VIEW */}
+      {plView === 'yearly' && (
+        <>
+          {/* Block-wise year */}
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ fontWeight:'800', fontSize:'15px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif", marginBottom:'14px' }}>🏢 Block-wise — {selectedYear}</div>
+            <TH cols={['Block','Income','Expenditure','P&L']} />
+            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+              <TR label="Block 1" income={yearTotal.b1.income} exp={yearTotal.b1.exp} pl={yearTotal.b1.pl} />
+              <TR label="Block 2" income={yearTotal.b2.income} exp={yearTotal.b2.exp} pl={yearTotal.b2.pl} />
+              <TR label="Total"   income={yearTotal.all.income} exp={yearTotal.all.exp} pl={yearTotal.all.pl} highlight />
+            </div>
+          </div>
 
-      {/* Account-wise — Donut + legend */}
-      <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
-        <div style={{ fontWeight:'800', fontSize:'16px', color:'#e2e8f0', marginBottom:'16px', fontFamily:"'Sora', sans-serif" }}>🏦 Account-wise Revenue</div>
-        {accountEntries.length === 0
-          ? <p style={{ color:'#475569', fontSize:'13px' }}>No data yet</p>
-          : (
-            <div style={{ display:'flex', gap:'24px', alignItems:'center', flexWrap:'wrap' }}>
-              {/* Donut */}
-              <div style={{ flexShrink:0 }}>
-                <DonutChart slices={donutSlices} size={160} />
-              </div>
-              {/* Legend + rows */}
-              <div style={{ flex:1, minWidth:'200px', display:'flex', flexDirection:'column', gap:'6px' }}>
-                {accountEntries.map(([acc, pmts], i) => {
-                  const fees  = pmts.reduce((s, p) => s + Number(p.amount), 0)
-                  const color = PALETTE[i % PALETTE.length]
-                  const isOpen = expandedAccount === acc
-                  return (
-                    <div key={acc}>
-                      <div onClick={() => setExpandedAccount(isOpen ? null : acc)}
-                        style={{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'10px', background: isOpen ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)', border:`1px solid ${isOpen ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)'}`, cursor:'pointer', transition:'all 0.15s' }}>
-                        <div style={{ width:'10px', height:'10px', borderRadius:'3px', background:color, flexShrink:0, boxShadow:`0 0 6px ${color}88` }} />
-                        <div style={{ flex:1 }}>
-                          <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700', display:'flex', alignItems:'center', gap:'6px' }}>
-                            {acc}
-                            <span style={{ color:'#475569', fontSize:'11px', fontWeight:'500' }}>{pmts.length} payment{pmts.length !== 1 ? 's' : ''}</span>
-                          </div>
-                        </div>
+          {/* Account-wise year */}
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ fontWeight:'800', fontSize:'15px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif", marginBottom:'14px' }}>🏦 Account-wise Income — {selectedYear}</div>
+            {ACCOUNTS.every(acc => payments.filter(p => p.account === acc && p.payment_date.startsWith(yearPrefix)).length === 0)
+              ? <p style={{ color:'#475569', fontSize:'13px' }}>No data for {selectedYear}</p>
+              : (
+                <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                  {ACCOUNTS.map((acc, i) => {
+                    const pmts  = payments.filter(p => p.account === acc && p.payment_date.startsWith(yearPrefix))
+                    const total = pmts.reduce((s, p) => s + Number(p.amount), 0)
+                    if (total === 0) return null
+                    const color = PALETTE[i % PALETTE.length]
+                    const pct   = yearTotal.all.income > 0 ? Math.round((total / yearTotal.all.income) * 100) : 0
+                    return (
+                      <div key={acc} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:'10px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                          <div style={{ textAlign:'right' }}>
-                            <div style={{ color, fontWeight:'800', fontSize:'14px' }}>₹{fees.toLocaleString('en-IN')}</div>
-                            <div style={{ color:'#475569', fontSize:'10px' }}>{totalRevenue > 0 ? Math.round((fees / totalRevenue) * 100) : 0}%</div>
-                          </div>
-                          <div style={{ color:'#64748b', fontSize:'16px', transition:'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)' }}>›</div>
+                          <div style={{ width:'9px', height:'9px', borderRadius:'3px', background:color, boxShadow:`0 0 5px ${color}88` }} />
+                          <span style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700' }}>{acc}</span>
+                          <span style={{ color:'#475569', fontSize:'11px' }}>{pmts.length} payments</span>
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                          <span style={{ color:'#475569', fontSize:'11px' }}>{pct}%</span>
+                          <span style={{ color, fontWeight:'800', fontSize:'14px' }}>₹{total.toLocaleString('en-IN')}</span>
                         </div>
                       </div>
-                      {isOpen && (
-                        <div style={{ marginTop:'6px', marginLeft:'8px', display:'flex', flexDirection:'column', gap:'5px', animation:'fadeIn 0.2s ease' }}>
-                          {pmts.map((p, j) => (
-                            <div key={j} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
-                              <div>
-                                <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{p.student_name}</div>
-                                <div style={{ color:'#64748b', fontSize:'10px' }}>Block {p.block}{p.seat_number ? ` · Seat ${p.seat_number}` : ''} · {format(new Date(p.payment_date), 'dd MMM yyyy')}{p.notes ? ` · ${p.notes}` : ''}</div>
-                              </div>
-                              <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'13px' }}>+₹{Number(p.amount).toLocaleString('en-IN')}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    )
+                  })}
+                </div>
+              )
+            }
+          </div>
+
+          {/* Month-wise table */}
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ fontWeight:'800', fontSize:'15px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif", marginBottom:'14px' }}>📅 Month-wise P&L — {selectedYear}</div>
+            <TH cols={['Month','Income','Expenditure','P&L']} />
+            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+              {yearlyRows.map(r => (
+                <TR key={r.mk} label={r.label} income={r.all.income} exp={r.all.exp} pl={r.all.pl}
+                  highlight={r.mk === nowKey} dimmed={r.mk > nowKey} />
+              ))}
+              <TR label={`Total ${selectedYear}`} income={yearTotal.all.income} exp={yearTotal.all.exp} pl={yearTotal.all.pl} highlight />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MONTHLY VIEW */}
+      {plView === 'monthly' && (
+        <>
+          {/* Block-wise month */}
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ fontWeight:'800', fontSize:'15px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif", marginBottom:'14px' }}>🏢 Block-wise — {format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}</div>
+            <TH cols={['Block','Income','Expenditure','P&L']} />
+            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+              {monthBlocks.map(b => <TR key={b.b} label={`Block ${b.b}`} income={b.income} exp={b.exp} pl={b.pl} />)}
+              <TR label="Total" income={monthTotal.income} exp={monthTotal.exp} pl={monthTotal.pl} highlight />
+            </div>
+          </div>
+
+          {/* Account-wise month */}
+          {monthAccounts.length > 0 && (
+            <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ fontWeight:'800', fontSize:'15px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif", marginBottom:'14px' }}>🏦 Account-wise Income — {format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                {monthAccounts.map((a) => {
+                  const color = PALETTE[ACCOUNTS.indexOf(a.acc) % PALETTE.length]
+                  const pct   = monthTotal.income > 0 ? Math.round((a.income / monthTotal.income) * 100) : 0
+                  return (
+                    <div key={a.acc} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:'10px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                        <div style={{ width:'9px', height:'9px', borderRadius:'3px', background:color, boxShadow:`0 0 5px ${color}88` }} />
+                        <span style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700' }}>{a.acc}</span>
+                        <span style={{ color:'#475569', fontSize:'11px' }}>{a.count} payments</span>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                        <span style={{ color:'#475569', fontSize:'11px' }}>{pct}%</span>
+                        <span style={{ color, fontWeight:'800', fontSize:'14px' }}>₹{a.income.toLocaleString('en-IN')}</span>
+                      </div>
                     </div>
                   )
                 })}
               </div>
             </div>
-          )
-        }
-      </div>
+          )}
 
-      {/* P&L Table — Yearly / Monthly */}
-      <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'16px', flexWrap:'wrap', gap:'10px' }}>
-          <div style={{ fontWeight:'800', fontSize:'16px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif" }}>📊 P&L Summary</div>
-          <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
-            {/* View toggle */}
-            <div style={{ display:'flex', gap:'4px', background:'rgba(255,255,255,0.06)', padding:'4px', borderRadius:'10px' }}>
-              {(['yearly','monthly'] as const).map(v => (
-                <button key={v} onClick={() => setPlView(v)}
-                  style={{ padding:'5px 12px', borderRadius:'7px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'700', fontSize:'12px',
-                    background: plView === v ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent',
-                    color: plView === v ? 'white' : '#64748b' }}>
-                  {v === 'yearly' ? 'Yearly' : 'Monthly'}
-                </button>
-              ))}
-            </div>
-            {/* Year picker */}
-            {plView === 'yearly' && (
-              <div style={{ display:'flex', gap:'4px', alignItems:'center' }}>
-                <button onClick={() => setSelectedYear(y => y - 1)} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color:'#94a3b8', fontSize:'16px' }}>‹</button>
-                <span style={{ color:'#e2e8f0', fontWeight:'800', fontSize:'14px', minWidth:'44px', textAlign:'center' }}>{selectedYear}</span>
-                <button onClick={() => setSelectedYear(y => y + 1)} disabled={selectedYear >= new Date().getFullYear()} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color: selectedYear >= new Date().getFullYear() ? '#334155' : '#94a3b8', fontSize:'16px' }}>›</button>
-              </div>
-            )}
-            {/* Month picker */}
-            {plView === 'monthly' && (
-              <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-                style={{ padding:'5px 10px', borderRadius:'8px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'12px', fontFamily:'inherit', outline:'none' }} />
-            )}
-          </div>
-        </div>
-
-        {/* Column headers */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', marginBottom:'8px', padding:'0 4px' }}>
-          {['Month','Income','Expenditure','P&L'].map(h => (
-            <div key={h} style={{ color:'#475569', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', textAlign: h === 'Month' ? 'left' : 'right' }}>{h}</div>
-          ))}
-        </div>
-
-        {/* Yearly view — 12 month rows */}
-        {plView === 'yearly' && (
-          <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-            {yearlyRows.map(r => {
-              const isCurrentMonth = r.monthKey === nowKey
-              const isFuture = r.monthKey > nowKey
-              const pl = r.pl
-              return (
-                <div key={r.monthKey} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', padding:'10px 8px', borderRadius:'10px', background: isCurrentMonth ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)', border:`1px solid ${isCurrentMonth ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.04)'}`, opacity: isFuture ? 0.4 : 1 }}>
-                  <div style={{ color: isCurrentMonth ? '#a5b4fc' : '#94a3b8', fontSize:'13px', fontWeight: isCurrentMonth ? '800' : '600', display:'flex', alignItems:'center', gap:'4px' }}>
-                    {r.label}{isCurrentMonth && <span style={{ fontSize:'9px', background:'rgba(99,102,241,0.2)', color:'#a5b4fc', padding:'1px 5px', borderRadius:'4px', fontWeight:'700' }}>NOW</span>}
-                  </div>
-                  <div style={{ textAlign:'right', color: r.income > 0 ? '#4ade80' : '#334155', fontSize:'13px', fontWeight:'700' }}>{r.income > 0 ? `₹${r.income.toLocaleString('en-IN')}` : '—'}</div>
-                  <div style={{ textAlign:'right', color: r.expenditure > 0 ? '#f87171' : '#334155', fontSize:'13px', fontWeight:'700' }}>{r.expenditure > 0 ? `₹${r.expenditure.toLocaleString('en-IN')}` : '—'}</div>
-                  <div style={{ textAlign:'right', color: pl > 0 ? '#4ade80' : pl < 0 ? '#f87171' : '#475569', fontSize:'13px', fontWeight:'800' }}>{pl !== 0 ? `${pl > 0 ? '+' : '-'}₹${Math.abs(pl).toLocaleString('en-IN')}` : '—'}</div>
+          {/* Transactions list */}
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ fontWeight:'800', fontSize:'15px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif", marginBottom:'14px' }}>📋 Transactions — {format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}</div>
+            {mPayments.length === 0 && mExp.length === 0 && mRefunds.length === 0 && mForfeit.length === 0
+              ? <p style={{ color:'#475569', fontSize:'13px' }}>No transactions this month</p>
+              : (
+                <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                  {(mPayments.length > 0 || mForfeit.length > 0) && (
+                    <div>
+                      <div style={{ color:'#4ade80', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'6px' }}>💰 Income</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                        {mPayments.map((p, i) => (
+                          <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(74,222,128,0.04)', border:'1px solid rgba(74,222,128,0.1)' }}>
+                            <div>
+                              <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{p.student_name}</div>
+                              <div style={{ color:'#64748b', fontSize:'10px' }}>B{p.block}{p.seat_number ? ` · Seat ${p.seat_number}` : ''} · {p.account} · {format(new Date(p.payment_date), 'dd MMM')}{p.notes ? ` · ${p.notes}` : ''}</div>
+                            </div>
+                            <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'13px' }}>+₹{Number(p.amount).toLocaleString('en-IN')}</div>
+                          </div>
+                        ))}
+                        {mForfeit.map((s, i) => (
+                          <div key={`f${i}`} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(74,222,128,0.04)', border:'1px solid rgba(74,222,128,0.1)' }}>
+                            <div>
+                              <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>❌ {s.name} — Deposit Forfeited</div>
+                              <div style={{ color:'#64748b', fontSize:'10px' }}>B{s.block}</div>
+                            </div>
+                            <div style={{ color:'#fb923c', fontWeight:'800', fontSize:'13px' }}>+₹{Number(s.security_deposit).toLocaleString('en-IN')}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(mExp.length > 0 || mRefunds.length > 0) && (
+                    <div>
+                      <div style={{ color:'#f87171', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'6px' }}>📤 Expenditure</div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                        {mExp.map((e, i) => (
+                          <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.1)' }}>
+                            <div>
+                              <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{e.category}</div>
+                              <div style={{ color:'#64748b', fontSize:'10px' }}>{e.account} · {format(new Date(e.date), 'dd MMM')}{e.description ? ` · ${e.description}` : ''}</div>
+                            </div>
+                            <div style={{ color:'#f87171', fontWeight:'800', fontSize:'13px' }}>-₹{Number(e.amount).toLocaleString('en-IN')}</div>
+                          </div>
+                        ))}
+                        {mRefunds.map((s, i) => (
+                          <div key={`r${i}`} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.1)' }}>
+                            <div>
+                              <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>↩️ {s.name} — Fee Refund</div>
+                              <div style={{ color:'#64748b', fontSize:'10px' }}>B{s.block}</div>
+                            </div>
+                            <div style={{ color:'#f87171', fontWeight:'800', fontSize:'13px' }}>-₹{Number(s.refund_amount).toLocaleString('en-IN')}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )
-            })}
-            {/* Year total row */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', padding:'12px 8px', borderRadius:'10px', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', marginTop:'4px' }}>
-              <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'800' }}>Total {selectedYear}</div>
-              <div style={{ textAlign:'right', color:'#4ade80', fontSize:'13px', fontWeight:'800' }}>₹{yearTotal.income.toLocaleString('en-IN')}</div>
-              <div style={{ textAlign:'right', color:'#f87171', fontSize:'13px', fontWeight:'800' }}>₹{yearTotal.expenditure.toLocaleString('en-IN')}</div>
-              <div style={{ textAlign:'right', color: yearTotal.pl >= 0 ? '#4ade80' : '#f87171', fontSize:'13px', fontWeight:'800' }}>{yearTotal.pl >= 0 ? '+' : '-'}₹{Math.abs(yearTotal.pl).toLocaleString('en-IN')}</div>
-            </div>
+              )}
           </div>
-        )}
-
-        {/* Monthly view — income/exp totals + line items */}
-        {plView === 'monthly' && (
-          <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-            {/* Month totals */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', padding:'12px 8px', borderRadius:'10px', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'800' }}>{format(new Date(selectedMonth + '-01'), 'MMM yyyy')}</div>
-              <div style={{ textAlign:'right', color:'#4ade80', fontSize:'13px', fontWeight:'800' }}>₹{monthIncome.toLocaleString('en-IN')}</div>
-              <div style={{ textAlign:'right', color:'#f87171', fontSize:'13px', fontWeight:'800' }}>₹{monthExp.toLocaleString('en-IN')}</div>
-              <div style={{ textAlign:'right', color: monthPL >= 0 ? '#4ade80' : '#f87171', fontSize:'13px', fontWeight:'800' }}>{monthPL >= 0 ? '+' : '-'}₹{Math.abs(monthPL).toLocaleString('en-IN')}</div>
-            </div>
-            {/* Income line items */}
-            {monthlyPayments.length > 0 && (
-              <div>
-                <div style={{ color:'#4ade80', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'6px', paddingLeft:'4px' }}>💰 Income</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-                  {monthlyPayments.map((p, i) => (
-                    <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(74,222,128,0.04)', border:'1px solid rgba(74,222,128,0.1)' }}>
-                      <div>
-                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{p.student_name}</div>
-                        <div style={{ color:'#64748b', fontSize:'10px' }}>Block {p.block}{p.seat_number ? ` · Seat ${p.seat_number}` : ''} · {p.account} · {format(new Date(p.payment_date), 'dd MMM')}{p.notes ? ` · ${p.notes}` : ''}</div>
-                      </div>
-                      <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'13px' }}>+₹{Number(p.amount).toLocaleString('en-IN')}</div>
-                    </div>
-                  ))}
-                  {monthlyForfeit.map((s, i) => (
-                    <div key={`f-${i}`} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(74,222,128,0.04)', border:'1px solid rgba(74,222,128,0.1)' }}>
-                      <div>
-                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>❌ {s.name} — Deposit Forfeited</div>
-                        <div style={{ color:'#64748b', fontSize:'10px' }}>Block {s.block}</div>
-                      </div>
-                      <div style={{ color:'#fb923c', fontWeight:'800', fontSize:'13px' }}>+₹{Number(s.security_deposit).toLocaleString('en-IN')}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* Expenditure line items */}
-            {(monthlyExp.length > 0 || monthlyRefunds.length > 0 || monthlyForfeit.length > 0) && (
-              <div>
-                <div style={{ color:'#f87171', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'6px', paddingLeft:'4px' }}>📤 Expenditure</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-                  {monthlyExp.map((e, i) => (
-                    <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.1)' }}>
-                      <div>
-                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{e.category}</div>
-                        <div style={{ color:'#64748b', fontSize:'10px' }}>{e.account} · {format(new Date(e.date), 'dd MMM')}{e.description ? ` · ${e.description}` : ''}</div>
-                      </div>
-                      <div style={{ color:'#f87171', fontWeight:'800', fontSize:'13px' }}>-₹{Number(e.amount).toLocaleString('en-IN')}</div>
-                    </div>
-                  ))}
-                  {monthlyRefunds.map((s, i) => (
-                    <div key={`r-${i}`} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.1)' }}>
-                      <div>
-                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>↩️ {s.name} — Fee Refund</div>
-                        <div style={{ color:'#64748b', fontSize:'10px' }}>Block {s.block}</div>
-                      </div>
-                      <div style={{ color:'#f87171', fontWeight:'800', fontSize:'13px' }}>-₹{Number(s.refund_amount).toLocaleString('en-IN')}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {monthlyPayments.length === 0 && monthlyExp.length === 0 && monthlyRefunds.length === 0 && monthlyForfeit.length === 0 && (
-              <div style={{ textAlign:'center', padding:'30px 0', color:'#475569', fontSize:'13px' }}>No transactions for this month</div>
-            )}
-          </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Projected Renewals */}
       <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(99,102,241,0.2)' }}>
@@ -576,14 +438,11 @@ export default function Analytics() {
           <div style={{ padding:'4px 12px', borderRadius:'20px', background:'rgba(99,102,241,0.15)', border:'1px solid rgba(99,102,241,0.3)', color:'#a5b4fc', fontSize:'12px', fontWeight:'700' }}>Next 3 months</div>
         </div>
         <div style={{ color:'#64748b', fontSize:'12px', marginBottom:'16px' }}>Estimated from students whose seat expires — based on last paid amount</div>
-
-        {/* Mini bar chart for projections */}
         {totalProjected > 0 && (
           <div style={{ marginBottom:'16px' }}>
             <BarChart bars={projectionMonths.map((m, i) => ({ label: format(new Date(m.key + '-01'), 'MMM yy'), value: m.estimated, sublabel:`${m.students.length} students`, color:'#8b5cf6' }))} height={100} />
           </div>
         )}
-
         <div style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(236,72,153,0.08))', borderRadius:'12px', padding:'14px 18px', border:'1px solid rgba(99,102,241,0.2)', marginBottom:'12px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <div>
             <div style={{ color:'#94a3b8', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'3px' }}>Total Projected (3 months)</div>
@@ -591,7 +450,6 @@ export default function Analytics() {
           </div>
           <div style={{ fontSize:'28px' }}>📅</div>
         </div>
-
         <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
           {projectionMonths.map(m => (
             <ProjectionMonth key={m.key} label={m.label} students={m.students} estimated={m.estimated} isCurrentMonth={m.key === getMonthKey(today)} />
