@@ -1,6 +1,6 @@
 'use client'
 import { Student, SeatStatus, SeatWithStudent } from '@/lib/types'
-import { format, differenceInDays, addMonths } from 'date-fns'
+import { format, differenceInDays, addMonths, addDays, addYears } from 'date-fns'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -53,7 +53,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
   const [panel, setPanel] = useState<Panel>('main')
 
   // Renew state
-  const [renewMonths, setRenewMonths]   = useState(1)
+  const [renewDuration, setRenewDuration] = useState('1m')
   const [renewAmount, setRenewAmount]   = useState('')
   const [renewAccount, setRenewAccount] = useState(student?.account || '')
   const [renewDue, setRenewDue]         = useState('')
@@ -79,9 +79,15 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
 
   useEffect(() => {
     if (!student) return
-    const base = daysLeft !== null && daysLeft < 0 ? new Date() : new Date(student.due_date)
-    setRenewDue(format(addMonths(base, Number(renewMonths)), 'yyyy-MM-dd'))
-  }, [renewMonths, student])
+    const base = new Date(student.due_date)
+    const val  = parseInt(renewDuration)
+    const unit = renewDuration.slice(-1)
+    let due: Date
+    if (unit === 'd') due = addDays(base, val)
+    else if (unit === 'm') due = addMonths(base, val)
+    else due = addYears(base, val)
+    setRenewDue(format(due, 'yyyy-MM-dd'))
+  }, [renewDuration, student])
 
   // Vacant seats for transfer
   const vacantSeats = allSeats.filter(s =>
@@ -96,7 +102,13 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
     setRenewLoading(true); setRenewError('')
     const { error } = await supabase.from('students').update({
       due_date:        renewDue,
-      duration_months: student.duration_months + Number(renewMonths),
+      duration_months: (() => {
+        const val = parseInt(renewDuration)
+        const unit = renewDuration.slice(-1)
+        if (unit === 'd') return student.duration_months + Math.max(1, Math.round(val / 30))
+        if (unit === 'm') return student.duration_months + val
+        return student.duration_months + val * 12
+      })(),
       payment_date:    format(new Date(), 'yyyy-MM-dd'),
       amount:          Number(renewAmount),
       account:         renewAccount,
@@ -290,8 +302,25 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
               </div>
               <form onSubmit={handleRenew} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
                 <div>
-                  <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'6px' }}>Extend By (months) *</label>
-                  <input type="number" required min={1} max={24} value={renewMonths} onChange={e => setRenewMonths(parseInt(e.target.value))} style={inp} />
+                  <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'6px' }}>Extend By *</label>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:'6px' }}>
+                    {[
+                      { label:'1 Day',    value:'1d'  },
+                      { label:'3 Days',   value:'3d'  },
+                      { label:'7 Days',   value:'7d'  },
+                      { label:'15 Days',  value:'15d' },
+                      { label:'1 Month',  value:'1m'  },
+                      { label:'2 Months', value:'2m'  },
+                      { label:'3 Months', value:'3m'  },
+                      { label:'6 Months', value:'6m'  },
+                      { label:'1 Year',   value:'1y'  },
+                    ].map(opt => (
+                      <button key={opt.value} type="button" onClick={() => setRenewDuration(opt.value)}
+                        style={{ padding:'7px 14px', borderRadius:'20px', border:`2px solid ${renewDuration === opt.value ? 'rgba(99,102,241,0.7)' : 'rgba(255,255,255,0.1)'}`, cursor:'pointer', background: renewDuration === opt.value ? 'rgba(99,102,241,0.2)' : 'transparent', color: renewDuration === opt.value ? '#a5b4fc' : '#64748b', fontWeight:'700', fontSize:'12px', fontFamily:'inherit', transition:'all 0.15s' }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div style={{ background:'rgba(99,102,241,0.1)', borderRadius:'10px', padding:'12px 14px', border:'1px solid rgba(99,102,241,0.25)' }}>
                   <div style={{ color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'3px' }}>📅 New Due Date</div>
