@@ -107,8 +107,11 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   })
 
   // Recalc due date whenever joining_date or duration changes
+  // For renewals (edit mode): base = existing due_date (student may be overdue, so we honour the original cycle)
+  // For new students: base = joining_date
   useEffect(() => {
-    const due = calcDueDate(form.joining_date, form.duration)
+    const base = (isEdit && student?.due_date) ? student.due_date : form.joining_date
+    const due = calcDueDate(base, form.duration)
     setForm(f => ({ ...f, due_date: due }))
   }, [form.joining_date, form.duration])
 

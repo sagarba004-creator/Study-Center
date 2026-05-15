@@ -228,9 +228,8 @@ export default function Analytics() {
     color: PALETTE[i % PALETTE.length],
   }))
 
-  // Time breakdown — grouped by payment_date, newest first
+  // Time breakdown
   const getMonthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-  const nowKey = getMonthKey(new Date())
   const groups: Record<string, Student[]> = {}
   allStudents.forEach(s => {
     const d   = new Date(s.payment_date)
@@ -243,7 +242,7 @@ export default function Analytics() {
 
   // Bar chart data — last 6 periods
   const barData = sortedKeys.slice(-6).map((key, i) => ({
-    label: (view === 'month' ? format(new Date(key + '-01'), 'MMM yy') : format(new Date(key), 'dd MMM')) + (key > nowKey ? '*' : ''),
+    label: view === 'month' ? format(new Date(key + '-01'), 'MMM yy') : format(new Date(key), 'dd MMM'),
     value: groups[key].reduce((s, st) => s + Number(st.amount), 0),
     sublabel: `${groups[key].length} students`,
     color: PALETTE[i % PALETTE.length],
@@ -386,10 +385,9 @@ export default function Analytics() {
             const refunds = grp.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
             const net     = fees - refunds
             const isOpen  = expandedPeriod === key
-            const isFuture = key > nowKey
             const label   = view === 'month'
-              ? format(new Date(key + '-01'), 'MMMM yyyy') + (isFuture ? ' 🔮' : '')
-              : `Week of ${format(new Date(key), 'dd MMM yyyy')}` + (isFuture ? ' 🔮' : '')
+              ? format(new Date(key + '-01'), 'MMMM yyyy')
+              : `Week of ${format(new Date(key), 'dd MMM yyyy')}`
             const txns: { student: Student; type: 'credit'|'debit'|'deposit'|'forfeit'|'feerefund'; date: Date }[] = []
             grp.forEach(s => {
               txns.push({ student:s, type:'credit',  date:new Date(s.payment_date) })
