@@ -188,9 +188,25 @@ function TxRow({ student, type }: { student: Student; type: 'credit' | 'debit' |
 // ── Main Analytics ───────────────────────────────────────────────────────────
 const PALETTE = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#06b6d4']
 
+interface Payment {
+  id: string; student_id: string; student_name: string
+  block: number; seat_number: number | null
+  amount: number; account: string; payment_date: string
+  joining_date: string | null; due_date: string | null
+  duration: string | null; duration_months: number | null
+  notes: string | null; created_at: string
+}
+
+interface Expenditure {
+  id: string; date: string; amount: number; account: string
+  category: string; description: string | null; block: number | null
+}
+
 export default function Analytics() {
   const [students, setStudents]       = useState<Student[]>([])
   const [oldStudents, setOldStudents] = useState<Student[]>([])
+  const [payments, setPayments]       = useState<Payment[]>([])
+  const [expenditures, setExpenditures] = useState<Expenditure[]>([])
   const [view, setView]               = useState<'month' | 'week'>('month')
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null)
   const [expandedPeriod,  setExpandedPeriod]  = useState<string | null>(null)
@@ -201,68 +217,86 @@ export default function Analytics() {
     Promise.all([
       supabase.from('students').select('*').eq('is_active', true),
       supabase.from('students').select('*').eq('is_active', false),
-    ]).then(([active, old]) => {
+      supabase.from('payments').select('*').order('payment_date', { ascending: false }),
+      supabase.from('expenditures').select('*').order('date', { ascending: false }),
+    ]).then(([active, old, pay, exp]) => {
       if (active.data) setStudents(active.data as Student[])
       if (old.data)    setOldStudents(old.data as Student[])
+      if (pay.data)    setPayments(pay.data as Payment[])
+      if (exp.data)    setExpenditures(exp.data as Expenditure[])
     })
   }, [])
 
   const allStudentsRaw    = [...students, ...oldStudents]
   const allStudents       = blockFilter === 'all' ? allStudentsRaw : allStudentsRaw.filter(s => s.block === blockFilter)
   const filteredActive    = blockFilter === 'all' ? students : students.filter(s => s.block === blockFilter)
-  const totalRevenue      = allStudents.reduce((s, st) => s + Number(st.amount), 0)
+
+  // Payments from payments table (source of truth for income)
+  const filteredPayments  = blockFilter === 'all' ? payments : payments.filter(p => p.block === blockFilter)
+  const totalRevenue      = filteredPayments.reduce((s, p) => s + Number(p.amount), 0)
+
+  // Locker revenue still from students table
   const totalLockerRev    = allStudents.filter(s => (s.locker_numbers || []).length > 0).reduce((s, st) => s + Number(st.locker_amount || 0), 0)
+
+  // Refunds & deposits still from students table
   const totalFeeRefunds   = allStudents.reduce((s, st) => s + Number(st.refund_amount || 0), 0)
   const netRevenue        = totalRevenue - totalFeeRefunds
   const depositsHeld      = filteredActive.filter(s => s.security_deposit_status === 'collected').reduce((s, st) => s + Number(st.security_deposit), 0)
   const depositsForfeited = allStudents.filter(s => s.security_deposit_status === 'forfeited').reduce((s, st) => s + Number(st.security_deposit), 0)
   const depositsRefunded  = allStudents.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
 
-  // Account breakdown
-  const byAccount: Record<string, Student[]> = {}
-  allStudents.forEach(s => {
-    if (!byAccount[s.account]) byAccount[s.account] = []
-    byAccount[s.account].push(s)
+  // P&L — uses payments + expenditures
+  const filteredExp       = blockFilter === 'all' ? expenditures : expenditures.filter(e => !e.block || e.block === blockFilter)
+  const totalIncome       = totalRevenue + depositsForfeited
+  const totalManualExp    = filteredExp.reduce((s, e) => s + Number(e.amount), 0)
+  const totalExpenditure  = totalManualExp + totalFeeRefunds
+  const profitLoss        = totalIncome - totalExpenditure
+  const isProfit          = profitLoss >= 0
+
+  // Account breakdown from payments table
+  const byAccount: Record<string, Payment[]> = {}
+  filteredPayments.forEach(p => {
+    if (!byAccount[p.account]) byAccount[p.account] = []
+    byAccount[p.account].push(p)
   })
   const accountEntries = Object.entries(byAccount)
-  const donutSlices = accountEntries.map(([acc, sts], i) => ({
+  const donutSlices = accountEntries.map(([acc, pmts], i) => ({
     label: acc,
-    value: sts.reduce((s, st) => s + Number(st.amount), 0),
+    value: pmts.reduce((s, p) => s + Number(p.amount), 0),
     color: PALETTE[i % PALETTE.length],
   }))
 
-  // Time breakdown — grouped by payment_date for fees, refund_date/vacated_at for refunds
+  // Time breakdown from payments table
   const getMonthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
   const getKey = (d: Date) => view === 'month'
     ? format(d, 'yyyy-MM')
     : format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const nowKey = getMonthKey(new Date())
-  // groups: period -> students whose PAYMENT belongs to that period
-  const groups: Record<string, Student[]> = {}
-  allStudents.forEach(s => {
-    const key = getKey(new Date(s.payment_date))
-    groups[key] = [...(groups[key] || []), s]
+
+  const groups: Record<string, Payment[]> = {}
+  filteredPayments.forEach(p => {
+    const key = getKey(new Date(p.payment_date))
+    groups[key] = [...(groups[key] || []), p]
   })
-  // refundGroups: period -> students whose REFUND belongs to that period (by refund_date or vacated_at)
+  // Add periods from refunds that may not have payments
   const refundGroups: Record<string, Student[]> = {}
   allStudents.filter(s => s.security_deposit_status === 'refunded' || Number(s.refund_amount) > 0).forEach(s => {
     const refundDate = s.refund_date ? new Date(s.refund_date) : s.vacated_at ? new Date(s.vacated_at) : new Date(s.payment_date)
     const key = getKey(refundDate)
     refundGroups[key] = [...(refundGroups[key] || []), s]
-    // Also ensure this period exists in groups even if no payment was in it
     if (!groups[key]) groups[key] = []
   })
   const sortedKeys = Object.keys(groups).sort()
 
-  // Bar chart data — last 6 periods
+  // Bar chart — from payments
   const barData = sortedKeys.slice(-6).map((key, i) => ({
     label: (view === 'month' ? format(new Date(key + '-01'), 'MMM yy') : format(new Date(key), 'dd MMM')) + (key > nowKey ? '*' : ''),
-    value: groups[key].reduce((s, st) => s + Number(st.amount), 0),
-    sublabel: `${groups[key].length} students`,
+    value: (groups[key] || []).reduce((s, p) => s + Number(p.amount), 0),
+    sublabel: `${(groups[key] || []).length} payments`,
     color: PALETTE[i % PALETTE.length],
   }))
 
-  // Projections
+  // Projections — still from students due_date
   const today = new Date(); today.setHours(0,0,0,0)
   const projectionMonths = Array.from({ length: 3 }, (_, i) => {
     const d   = new Date(today); d.setMonth(d.getMonth() + i)
@@ -271,22 +305,6 @@ export default function Analytics() {
     return { key, label: format(d, 'MMMM yyyy'), students: due, estimated: due.reduce((s, st) => s + Number(st.amount), 0) }
   })
   const totalProjected = projectionMonths.reduce((s, m) => s + m.estimated, 0)
-
-  const getAccountTxns = (sts: Student[]) => {
-    const txns: { student: Student; type: 'credit'|'debit'|'deposit'|'forfeit'|'feerefund'; date: Date }[] = []
-    sts.forEach(s => {
-      txns.push({ student:s, type:'credit',  date:new Date(s.payment_date) })
-      if (s.security_deposit > 0 && s.security_deposit_status === 'collected' && s.is_active)
-        txns.push({ student:s, type:'deposit', date:new Date(s.payment_date) })
-      if (s.security_deposit > 0 && s.security_deposit_status === 'refunded')
-        txns.push({ student:s, type:'debit',     date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
-      if (s.security_deposit > 0 && s.security_deposit_status === 'forfeited')
-        txns.push({ student:s, type:'forfeit',   date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
-      if (Number(s.refund_amount) > 0)
-        txns.push({ student:s, type:'feerefund', date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
-    })
-    return txns.sort((a,b) => b.date.getTime() - a.date.getTime())
-  }
 
   const card = (emoji: string, label: string, value: string, color: string, sub?: string) => (
     <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'14px', padding:'16px 18px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'130px' }}>
@@ -312,12 +330,34 @@ export default function Analytics() {
         ))}
       </div>
 
+      {/* P&L Card */}
+      <div style={{ background: isProfit ? 'rgba(74,222,128,0.06)' : 'rgba(239,68,68,0.06)', borderRadius:'16px', padding:'18px 20px', border:`1.5px solid ${isProfit ? 'rgba(74,222,128,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+        <div style={{ fontWeight:'800', fontSize:'15px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif", marginBottom:'12px' }}>
+          {isProfit ? '📈' : '📉'} Profit & Loss {blockFilter !== 'all' ? `— Block ${blockFilter}` : '— Overall'}
+        </div>
+        <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'12px', padding:'12px 16px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'130px' }}>
+            <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>💰 Income</div>
+            <div style={{ color:'#4ade80', fontSize:'18px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>₹{totalIncome.toLocaleString('en-IN')}</div>
+            <div style={{ color:'#475569', fontSize:'10px', marginTop:'2px' }}>Fees + ₹{depositsForfeited.toLocaleString('en-IN')} forfeited</div>
+          </div>
+          <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'12px', padding:'12px 16px', border:'1.5px solid rgba(255,255,255,0.07)', flex:1, minWidth:'130px' }}>
+            <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>📤 Expenditure</div>
+            <div style={{ color:'#f87171', fontSize:'18px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>₹{totalExpenditure.toLocaleString('en-IN')}</div>
+            <div style={{ color:'#475569', fontSize:'10px', marginTop:'2px' }}>₹{totalManualExp.toLocaleString('en-IN')} ops + ₹{totalFeeRefunds.toLocaleString('en-IN')} refunds</div>
+          </div>
+          <div style={{ background: isProfit ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.08)', borderRadius:'12px', padding:'12px 16px', border:`1.5px solid ${isProfit ? 'rgba(74,222,128,0.2)' : 'rgba(239,68,68,0.2)'}`, flex:1, minWidth:'130px' }}>
+            <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'4px' }}>{isProfit ? '🟢 Net Profit' : '🔴 Net Loss'}</div>
+            <div style={{ color: isProfit ? '#4ade80' : '#f87171', fontSize:'18px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>₹{Math.abs(profitLoss).toLocaleString('en-IN')}</div>
+          </div>
+        </div>
+      </div>
+
       {/* Summary cards */}
       <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
-        {card('💰', 'Total Fees',         `₹${totalRevenue.toLocaleString('en-IN')}`,      '#4ade80')}
+        {card('💰', 'Total Fees',         `₹${totalRevenue.toLocaleString('en-IN')}`,      '#4ade80', `${filteredPayments.length} payments`)}
         {totalLockerRev > 0 && card('🔒', 'Locker Revenue', `₹${totalLockerRev.toLocaleString('en-IN')}`, '#67e8f9')}
         {totalFeeRefunds > 0 && card('↩️', 'Fee Refunds',  `₹${totalFeeRefunds.toLocaleString('en-IN')}`, '#f87171', 'outflow')}
-        {totalFeeRefunds > 0 && card('💵', 'Net Revenue',  `₹${netRevenue.toLocaleString('en-IN')}`,      '#4ade80', 'after refunds')}
         {card('👥', 'Active Students',    String(filteredActive.length),                    '#a5b4fc')}
         {depositsHeld > 0      && card('🔐', 'Deposits Held',     `₹${depositsHeld.toLocaleString('en-IN')}`,      '#fde047', 'liability')}
         {depositsForfeited > 0 && card('❌', 'Deposits Forfeited', `₹${depositsForfeited.toLocaleString('en-IN')}`, '#fb923c', 'income')}
@@ -337,13 +377,10 @@ export default function Analytics() {
               </div>
               {/* Legend + rows */}
               <div style={{ flex:1, minWidth:'200px', display:'flex', flexDirection:'column', gap:'6px' }}>
-                {accountEntries.map(([acc, sts], i) => {
-                  const fees    = sts.reduce((s, st) => s + Number(st.amount), 0)
-                  const refunds = sts.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
-                  const net     = fees - refunds
-                  const color   = PALETTE[i % PALETTE.length]
-                  const isOpen  = expandedAccount === acc
-                  const txns    = getAccountTxns(sts)
+                {accountEntries.map(([acc, pmts], i) => {
+                  const fees  = pmts.reduce((s, p) => s + Number(p.amount), 0)
+                  const color = PALETTE[i % PALETTE.length]
+                  const isOpen = expandedAccount === acc
                   return (
                     <div key={acc}>
                       <div onClick={() => setExpandedAccount(isOpen ? null : acc)}
@@ -352,26 +389,28 @@ export default function Analytics() {
                         <div style={{ flex:1 }}>
                           <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700', display:'flex', alignItems:'center', gap:'6px' }}>
                             {acc}
-                            <span style={{ color:'#475569', fontSize:'11px', fontWeight:'500' }}>{sts.length} student{sts.length !== 1 ? 's' : ''}</span>
+                            <span style={{ color:'#475569', fontSize:'11px', fontWeight:'500' }}>{pmts.length} payment{pmts.length !== 1 ? 's' : ''}</span>
                           </div>
-                          {refunds > 0 && <div style={{ color:'#f87171', fontSize:'10px' }}>↩️ ₹{refunds.toLocaleString('en-IN')} refunded</div>}
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
                           <div style={{ textAlign:'right' }}>
-                            <div style={{ color, fontWeight:'800', fontSize:'14px' }}>₹{net.toLocaleString('en-IN')}</div>
-                            <div style={{ color:'#475569', fontSize:'10px' }}>{Math.round((fees / totalRevenue) * 100)}%</div>
+                            <div style={{ color, fontWeight:'800', fontSize:'14px' }}>₹{fees.toLocaleString('en-IN')}</div>
+                            <div style={{ color:'#475569', fontSize:'10px' }}>{totalRevenue > 0 ? Math.round((fees / totalRevenue) * 100) : 0}%</div>
                           </div>
                           <div style={{ color:'#64748b', fontSize:'16px', transition:'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)' }}>›</div>
                         </div>
                       </div>
                       {isOpen && (
                         <div style={{ marginTop:'6px', marginLeft:'8px', display:'flex', flexDirection:'column', gap:'5px', animation:'fadeIn 0.2s ease' }}>
-                          <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'4px' }}>
-                            <span style={{ padding:'3px 8px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', background:'rgba(74,222,128,0.1)', color:'#4ade80' }}>+₹{fees.toLocaleString('en-IN')} fees</span>
-                            {refunds > 0 && <span style={{ padding:'3px 8px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', background:'rgba(239,68,68,0.1)', color:'#f87171' }}>-₹{refunds.toLocaleString('en-IN')} refunds</span>}
-                            <span style={{ padding:'3px 8px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', background:'rgba(99,102,241,0.1)', color:'#a5b4fc' }}>= ₹{net.toLocaleString('en-IN')} net</span>
-                          </div>
-                          {txns.map((tx, j) => <TxRow key={j} student={tx.student} type={tx.type} />)}
+                          {pmts.map((p, j) => (
+                            <div key={j} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
+                              <div>
+                                <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{p.student_name}</div>
+                                <div style={{ color:'#64748b', fontSize:'10px' }}>Block {p.block}{p.seat_number ? ` · Seat ${p.seat_number}` : ''} · {format(new Date(p.payment_date), 'dd MMM yyyy')}{p.notes ? ` · ${p.notes}` : ''}</div>
+                              </div>
+                              <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'13px' }}>+₹{Number(p.amount).toLocaleString('en-IN')}</div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -407,31 +446,16 @@ export default function Analytics() {
         <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
           {sortedKeys.slice().reverse().map(key => {
             const grp     = groups[key]
-            const fees    = grp.reduce((s, st) => s + Number(st.amount), 0)
-            const refunds = (refundGroups[key] || []).filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
+            const fees    = grpPayments.reduce((s, p) => s + Number(p.amount), 0)
+            const refunds = grpRefunds.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
             const net     = fees - refunds
             const isOpen  = expandedPeriod === key
             const isFuture = key > nowKey
             const label   = view === 'month'
               ? format(new Date(key + '-01'), 'MMMM yyyy') + (isFuture ? ' 🔮' : '')
               : `Week of ${format(new Date(key), 'dd MMM yyyy')}` + (isFuture ? ' 🔮' : '')
-            const txns: { student: Student; type: 'credit'|'debit'|'deposit'|'forfeit'|'feerefund'; date: Date }[] = []
-            grp.forEach(s => {
-              txns.push({ student:s, type:'credit',  date:new Date(s.payment_date) })
-              if (s.security_deposit > 0 && s.security_deposit_status === 'collected' && s.is_active)
-                txns.push({ student:s, type:'deposit', date:new Date(s.payment_date) })
-            })
-            // Add refunds/forfeits from refundGroups for this period
-            ;(refundGroups[key] || []).forEach(s => {
-              const refundDate = s.refund_date ? new Date(s.refund_date) : s.vacated_at ? new Date(s.vacated_at) : new Date()
-              if (s.security_deposit > 0 && s.security_deposit_status === 'refunded')
-                txns.push({ student:s, type:'debit',      date:refundDate })
-              if (s.security_deposit > 0 && s.security_deposit_status === 'forfeited')
-                txns.push({ student:s, type:'forfeit',    date:refundDate })
-              if (Number(s.refund_amount) > 0)
-                txns.push({ student:s, type:'feerefund',  date:refundDate })
-            })
-            txns.sort((a,b) => b.date.getTime() - a.date.getTime())
+            const grpPayments = groups[key] || []
+            const grpRefunds  = refundGroups[key] || []
 
             return (
               <div key={key}>
@@ -439,7 +463,7 @@ export default function Analytics() {
                   style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 14px', borderRadius:'11px', background: isOpen ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)', border:`1px solid ${isOpen ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`, cursor:'pointer', transition:'all 0.15s' }}>
                   <div>
                     <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700' }}>{label}</div>
-                    <div style={{ color:'#64748b', fontSize:'11px', marginTop:'1px' }}>{grp.length} students{refunds > 0 ? ` · -₹${refunds.toLocaleString('en-IN')} refunds` : ''}</div>
+                    <div style={{ color:'#64748b', fontSize:'11px', marginTop:'1px' }}>{grpPayments.length} payments{refunds > 0 ? ` · -₹${refunds.toLocaleString('en-IN')} refunds` : ''}</div>
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
                     <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'15px', fontFamily:"'Sora', sans-serif" }}>₹{net.toLocaleString('en-IN')}</div>
@@ -453,7 +477,24 @@ export default function Analytics() {
                       {refunds > 0 && <span style={{ padding:'3px 8px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', background:'rgba(239,68,68,0.1)', color:'#f87171' }}>-₹{refunds.toLocaleString('en-IN')} refunds</span>}
                       <span style={{ padding:'3px 8px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', background:'rgba(99,102,241,0.1)', color:'#a5b4fc' }}>= ₹{net.toLocaleString('en-IN')} net</span>
                     </div>
-                    {txns.map((tx, j) => <TxRow key={j} student={tx.student} type={tx.type} />)}
+                    {grpPayments.map((p, j) => (
+                      <div key={j} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
+                        <div>
+                          <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{p.student_name}</div>
+                          <div style={{ color:'#64748b', fontSize:'10px' }}>Block {p.block}{p.seat_number ? ` · Seat ${p.seat_number}` : ''} · {p.account}{p.notes ? ` · ${p.notes}` : ''}</div>
+                        </div>
+                        <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'13px' }}>+₹{Number(p.amount).toLocaleString('en-IN')}</div>
+                      </div>
+                    ))}
+                    {grpRefunds.map((s, j) => (
+                      <div key={`ref-${j}`} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.1)' }}>
+                        <div>
+                          <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>↩️ {s.name}</div>
+                          <div style={{ color:'#64748b', fontSize:'10px' }}>{s.security_deposit_status === 'refunded' ? 'Deposit Refund' : 'Fee Refund'}</div>
+                        </div>
+                        <div style={{ color:'#f87171', fontWeight:'800', fontSize:'13px' }}>-₹{(s.security_deposit_status === 'refunded' ? Number(s.security_deposit) : Number(s.refund_amount)).toLocaleString('en-IN')}</div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

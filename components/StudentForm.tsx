@@ -205,8 +205,50 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
       ? await supabase.from('students').update(payload).eq('id', student.id)
       : await supabase.from('students').insert(payload)
 
-    if (res.error) { setError(res.error.message); setLoading(false) }
-    else onSaved()
+    if (res.error) { setError(res.error.message); setLoading(false); return }
+
+    // Insert or update payment record
+    if (!isEdit) {
+      // New student — always insert a payment row
+      const studentRes = await supabase.from('students')
+        .select('id').eq('block', block).eq('seat_number', seatNumber ?? null)
+        .eq('is_active', true).single()
+      const sid = studentRes.data?.id
+      if (sid) {
+        await supabase.from('payments').insert({
+          student_id:      sid,
+          student_name:    form.name,
+          block,
+          seat_number:     seatNumber || null,
+          amount:          Number(form.amount),
+          account:         form.account,
+          payment_date:    form.payment_date,
+          joining_date:    form.joining_date,
+          due_date:        form.due_date,
+          duration:        form.duration,
+          duration_months: durationToMonths(form.duration),
+          notes:           'Initial assignment',
+        })
+      }
+    } else {
+      // Edit — update the latest payment row for this student
+      const { data: latest } = await supabase.from('payments')
+        .select('id').eq('student_id', student!.id)
+        .order('created_at', { ascending: false }).limit(1).single()
+      if (latest) {
+        await supabase.from('payments').update({
+          student_name:    form.name,
+          amount:          Number(form.amount),
+          account:         form.account,
+          payment_date:    form.payment_date,
+          joining_date:    form.joining_date,
+          due_date:        form.due_date,
+          duration:        form.duration,
+          duration_months: durationToMonths(form.duration),
+        }).eq('id', latest.id)
+      }
+    }
+    onSaved()
   }
 
   const exams    = ['UPSC','MPSC','NEET','JEE','CA','CET','Banking','Railway','SSC','GATE','IAS','IPS','Other']

@@ -25,14 +25,14 @@ const inp: React.CSSProperties = {
   color:'#f1f5f9', fontSize:'13px', outline:'none', boxSizing:'border-box', fontFamily:'inherit',
 }
 
-export default function Expenditure() {
+export default function Expenditure({ defaultBlock }: { defaultBlock?: 1 | 2 }) {
   const supabase = createClient()
   const today    = format(new Date(), 'yyyy-MM-dd')
 
   const [expenditures, setExpenditures]   = useState<Expenditure[]>([])
   const [students, setStudents]           = useState<Student[]>([])
   const [oldStudents, setOldStudents]     = useState<Student[]>([])
-  const [blockFilter, setBlockFilter]     = useState<'all' | 1 | 2>('all')
+  const [blockFilter, setBlockFilter]     = useState<'all' | 1 | 2>(defaultBlock ?? 'all')
   const [view, setView]                   = useState<'month' | 'week'>('month')
   const [showForm, setShowForm]           = useState(false)
   const [saving, setSaving]               = useState(false)
@@ -41,7 +41,7 @@ export default function Expenditure() {
 
   const [form, setForm] = useState({
     date: today, amount: '', account: 'Cash',
-    category: 'Rent', description: '', block: '1' as '1' | '2' | '',
+    category: 'Rent', description: '', block: (defaultBlock ? String(defaultBlock) : '1') as '1' | '2' | '',
   })
 
   useEffect(() => {
@@ -76,7 +76,7 @@ export default function Expenditure() {
     setSaving(false)
     setShowForm(false)
     setEditingId(null)
-    setForm({ date: today, amount: '', account: 'Cash', category: 'Rent', description: '', block: '1' })
+    setForm({ date: today, amount: '', account: 'Cash', category: 'Rent', description: '', block: (defaultBlock ? String(defaultBlock) : '1') as '1'|'2' })
     reload()
   }
 
@@ -159,6 +159,7 @@ export default function Expenditure() {
 
       {/* Block filter + Add button */}
       <div style={{ display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap' }}>
+        {!defaultBlock && (
         <div style={{ display:'flex', gap:'6px', background:'rgba(255,255,255,0.04)', padding:'5px', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.07)' }}>
           {([['all','All'],[ 1,'Block 1'],[ 2,'Block 2']] as const).map(([val, label]) => (
             <button key={String(val)} onClick={() => { setBlockFilter(val as 'all'|1|2); setExpandedPeriod(null) }}
@@ -169,7 +170,8 @@ export default function Expenditure() {
             </button>
           ))}
         </div>
-        <button onClick={() => { setShowForm(true); setEditingId(null); setForm({ date: today, amount: '', account: 'Cash', category: 'Rent', description: '', block: '1' }) }}
+        )}
+        <button onClick={() => { setShowForm(true); setEditingId(null); setForm({ date: today, amount: '', account: 'Cash', category: 'Rent', description: '', block: (defaultBlock ? String(defaultBlock) : '1') as '1'|'2' }) }}
           style={{ marginLeft:'auto', padding:'8px 16px', borderRadius:'10px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'800', fontSize:'13px', background:'linear-gradient(135deg,#6366f1,#ec4899)', color:'white' }}>
           + Add Expenditure
         </button>

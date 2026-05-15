@@ -125,8 +125,30 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
       amount:          Number(renewAmount),
       account:         renewAccount,
     }).eq('id', student.id)
-    if (error) { setRenewError(error.message); setRenewLoading(false) }
-    else { onRefresh(); onClose() }
+    if (error) { setRenewError(error.message); setRenewLoading(false); return }
+
+    // Insert payment record for renewal
+    await supabase.from('payments').insert({
+      student_id:      student.id,
+      student_name:    student.name,
+      block:           student.block,
+      seat_number:     student.seat_number,
+      amount:          Number(renewAmount),
+      account:         renewAccount,
+      payment_date:    format(new Date(), 'yyyy-MM-dd'),
+      joining_date:    renewDue, // new period starts at new due
+      due_date:        renewDue,
+      duration:        renewDuration,
+      duration_months: (() => {
+        const val = parseInt(renewDuration)
+        const unit = renewDuration.slice(-1)
+        if (unit === 'd') return Math.max(1, Math.round(val / 30))
+        if (unit === 'm') return val
+        return val * 12
+      })(),
+      notes: 'Renewal',
+    })
+    onRefresh(); onClose()
   }
 
   const handleTransfer = async (e: React.FormEvent) => {

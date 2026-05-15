@@ -9,9 +9,10 @@ import SeatModal from '@/components/SeatModal'
 import StudentForm from '@/components/StudentForm'
 import Analytics from '@/components/Analytics'
 import Expenditure from '@/components/Expenditure'
+import Transactions from '@/components/Transactions'
 import LockerGrid from '@/components/LockerGrid'
 
-type Tab = 'block1' | 'block2' | 'students' | 'analytics' | 'expenditure' | 'history'
+type Tab = 'block1' | 'block2' | 'students' | 'transactions' | 'analytics'
 type Role = 'admin' | 'staff' | 'viewer'
 
 const BLOCK1_ALL = [
@@ -49,6 +50,8 @@ export default function DashboardClient() {
   const [editingStudent, setEditingStudent]     = useState<Student | null>(null)
   const [oldSelectedStudent, setOldSelectedStudent] = useState<Student | null>(null)
   const [lockerDetail, setLockerDetail] = useState<{ num: number; student: Student | null } | null>(null)
+  const [showExpenditure, setShowExpenditure] = useState<1 | 2 | null>(null)
+  const [studentView, setStudentView]         = useState<'active' | 'vacated'>('active')
 
   const isAdmin   = role === 'admin'
   const canEdit   = role === 'admin' || role === 'staff'
@@ -232,14 +235,20 @@ export default function DashboardClient() {
             {/* BLOCK VIEWS */}
             {tab === 'block1' && (
               <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
-                <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏠 Block 1</div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
+                  <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0' }}>🏠 Block 1</div>
+                  {isAdmin && <button onClick={() => setShowExpenditure(1)} style={{ padding:'5px 12px', borderRadius:'8px', border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#f87171', fontSize:'11px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>📤 Expenditure</button>}
+                </div>
                 <Block1Grid seatsData={b1Seats} onSeatClick={handleSeatClick} />
                 <LockerGrid students={students} canEdit={canEdit} isAdmin={isAdmin} onLockerClick={(num, student) => setLockerDetail({ num, student })} />
               </div>
             )}
             {tab === 'block2' && (
               <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:'16px', padding:'14px', border:'1.5px solid rgba(255,255,255,0.07)', overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
-                <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0', marginBottom:'12px' }}>🏢 Block 2</div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
+                  <div style={{ fontFamily:"'Sora', sans-serif", fontWeight:'700', fontSize:'15px', color:'#e2e8f0' }}>🏢 Block 2</div>
+                  {isAdmin && <button onClick={() => setShowExpenditure(2)} style={{ padding:'5px 12px', borderRadius:'8px', border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#f87171', fontSize:'11px', fontWeight:'700', cursor:'pointer', fontFamily:'inherit' }}>📤 Expenditure</button>}
+                </div>
                 <Block2Grid seatsData={b2Seats} onSeatClick={handleSeatClick} />
               </div>
             )}
@@ -247,17 +256,64 @@ export default function DashboardClient() {
             {/* ANALYTICS */}
             {tab === 'analytics'   && isAdmin && <Analytics />}
 
-            {/* EXPENDITURE */}
-            {tab === 'expenditure' && isAdmin && <Expenditure />}
+            {/* TRANSACTIONS */}
+            {tab === 'transactions' && isAdmin && <Transactions />}
 
             {/* STUDENTS LIST */}
             {tab === 'students' && (
               <div>
+                {/* Active / Vacated toggle */}
+                <div style={{ display:'flex', gap:'4px', background:'rgba(255,255,255,0.04)', padding:'4px', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.07)', marginBottom:'12px', alignSelf:'flex-start', width:'fit-content' }}>
+                  {(['active','vacated'] as const).map(v => (
+                    <button key={v} onClick={() => { setStudentView(v); setSearch('') }}
+                      style={{ padding:'6px 18px', borderRadius:'7px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'800', fontSize:'12px', transition:'all 0.2s',
+                        background: studentView === v ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent',
+                        color: studentView === v ? 'white' : '#64748b' }}>
+                      {v === 'active' ? `Active (${students.length})` : `Vacated (${oldStudents.length})`}
+                    </button>
+                  ))}
+                </div>
                 <div style={{ position:'relative', marginBottom:'12px' }}>
                   <span style={{ position:'absolute', left:'12px', top:'50%', transform:'translateY(-50%)', fontSize:'14px' }}>🔍</span>
                   <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, phone, exam, seat…"
                     style={{ width:'100%', padding:'11px 14px 11px 38px', borderRadius:'12px', border:'1.5px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.05)', color:'#f1f5f9', fontSize:'14px', outline:'none', boxSizing:'border-box', fontFamily:'inherit' }} />
                 </div>
+
+                {/* Vacated students list */}
+                {studentView === 'vacated' && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                    {oldStudents.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()) || (s.phone && s.phone.includes(search))).length === 0 && <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontSize:'14px' }}>No vacated students yet</div>}
+                    {oldStudents.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()) || (s.phone && s.phone.includes(search))).map(student => (
+                      <div key={student.id} onClick={() => setOldSelectedStudent(student)}
+                        style={{ background:'rgba(255,255,255,0.03)', borderRadius:'14px', padding:'12px 14px', border:'1.5px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', cursor:'pointer' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 }}>
+                          <div style={{ width:'40px', height:'40px', borderRadius:'11px', background:'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'16px', color:'#64748b', flexShrink:0 }}>
+                            {student.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ fontWeight:'700', color:'#94a3b8', fontSize:'13px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{student.name}</div>
+                            <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.phone || ''}</div>
+                            <div style={{ color:'#334155', fontSize:'10px', marginTop:'1px' }}>B{student.block}{student.seat_number ? ` · Seat ${student.seat_number}` : ' · Flexible'}</div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign:'right', flexShrink:0 }}>
+                          <div style={{ color:'#475569', fontSize:'10px' }}>Vacated</div>
+                          <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600', whiteSpace:'nowrap' }}>
+                            {student.vacated_at ? new Date(student.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}
+                          </div>
+                          {canEdit && student.security_deposit > 0 && (
+                            <div style={{ fontSize:'10px', fontWeight:'700', marginTop:'3px', color: student.security_deposit_status === 'forfeited' ? '#f87171' : student.security_deposit_status === 'refunded' ? '#a5b4fc' : '#94a3b8' }}>
+                              🔐 {student.security_deposit_status === 'forfeited' ? '❌' : student.security_deposit_status === 'refunded' ? '↩️' : '—'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Active students list */}
+                {studentView === 'active' && (
                 <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
                   {filtered.length === 0 && <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontSize:'14px' }}>{search ? 'No results' : 'No active students yet'}</div>}
                   {filtered.map(student => {
@@ -288,47 +344,30 @@ export default function DashboardClient() {
                     )
                   })}
                 </div>
+                )}
               </div>
             )}
 
-            {/* OLD STUDENTS */}
-            {tab === 'history' && (
-              <div>
-                <div style={{ color:'#64748b', fontSize:'12px', fontWeight:'600', marginBottom:'12px' }}>🗂️ {oldStudents.length} past student{oldStudents.length !== 1 ? 's' : ''}</div>
-                <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
-                  {oldStudents.length === 0 && <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontSize:'14px' }}>No vacated students yet</div>}
-                  {oldStudents.map(student => (
-                    <div key={student.id} onClick={() => setOldSelectedStudent(student)}
-                      style={{ background:'rgba(255,255,255,0.03)', borderRadius:'14px', padding:'12px 14px', border:'1.5px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px', cursor:'pointer' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 }}>
-                        <div style={{ width:'40px', height:'40px', borderRadius:'11px', background:'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'800', fontSize:'16px', color:'#64748b', flexShrink:0 }}>
-                          {student.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div style={{ minWidth:0 }}>
-                          <div style={{ fontWeight:'700', color:'#94a3b8', fontSize:'13px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{student.name}</div>
-                          <div style={{ color:'#475569', fontSize:'11px', marginTop:'1px' }}>{student.exam} · {student.phone || ''}</div>
-                          <div style={{ color:'#334155', fontSize:'10px', marginTop:'1px' }}>B{student.block}{student.seat_number ? ` · Seat ${student.seat_number}` : ' · Flexible'}</div>
-                        </div>
-                      </div>
-                      <div style={{ textAlign:'right', flexShrink:0 }}>
-                        <div style={{ color:'#475569', fontSize:'10px' }}>Vacated</div>
-                        <div style={{ color:'#64748b', fontSize:'11px', fontWeight:'600', whiteSpace:'nowrap' }}>
-                          {student.vacated_at ? new Date(student.vacated_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—'}
-                        </div>
-                        {canEdit && student.security_deposit > 0 && (
-                          <div style={{ fontSize:'10px', fontWeight:'700', marginTop:'3px', color: student.security_deposit_status === 'forfeited' ? '#f87171' : student.security_deposit_status === 'refunded' ? '#a5b4fc' : '#94a3b8' }}>
-                            🔐 {student.security_deposit_status === 'forfeited' ? '❌' : student.security_deposit_status === 'refunded' ? '↩️' : '—'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
           </>
         )}
       </main>
+
+      {/* EXPENDITURE SHEET */}
+      {showExpenditure && isAdmin && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center' }}
+          onClick={() => setShowExpenditure(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ width:'100%', maxWidth:'540px', background:'#1e293b', borderRadius:'24px 24px 0 0', border:'1.5px solid rgba(255,255,255,0.1)', maxHeight:'85vh', overflowY:'auto', fontFamily:"'Nunito', sans-serif" }}>
+            <div style={{ padding:'18px 20px 14px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, background:'#1e293b', zIndex:1 }}>
+              <div style={{ fontWeight:'800', fontSize:'17px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif" }}>📤 Block {showExpenditure} Expenditure</div>
+              <button onClick={() => setShowExpenditure(null)} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'8px', width:'30px', height:'30px', cursor:'pointer', color:'#94a3b8', fontSize:'18px' }}>×</button>
+            </div>
+            <div style={{ padding:'16px 20px 32px' }}>
+              <Expenditure defaultBlock={showExpenditure} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODALS */}
       {selectedSeat && !showForm && (
