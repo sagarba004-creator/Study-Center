@@ -85,9 +85,6 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   const [oldStudents, setOldStudents] = useState<Student[]>([])
   const [searching, setSearching]     = useState(false)
   const today = format(new Date(), 'yyyy-MM-dd')
-  const isEdit = !!student?.id
-  // For renewals, roll forward from the existing due_date not joining_date
-  const renewalBase = isEdit && student?.due_date ? student.due_date : null
 
   const [form, setForm] = useState({
     name:                    student?.name || '',
@@ -110,11 +107,8 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   })
 
   // Recalc due date whenever joining_date or duration changes
-  // For renewals (edit mode): base = existing due_date so overdue days are preserved
-  // For new students: base = joining_date
   useEffect(() => {
-    const base = renewalBase || form.joining_date
-    const due = calcDueDate(base, form.duration)
+    const due = calcDueDate(form.joining_date, form.duration)
     setForm(f => ({ ...f, due_date: due }))
   }, [form.joining_date, form.duration])
 
