@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Student } from '@/lib/types'
-import { format, startOfWeek } from 'date-fns'
+import { format } from 'date-fns'
 
 // ── Donut Chart ──────────────────────────────────────────────────────────────
 function DonutChart({ slices, size = 160 }: {
@@ -207,9 +207,10 @@ export default function Analytics() {
   const [oldStudents, setOldStudents] = useState<Student[]>([])
   const [payments, setPayments]       = useState<Payment[]>([])
   const [expenditures, setExpenditures] = useState<Expenditure[]>([])
-  const [view, setView]               = useState<'month' | 'week'>('month')
+  const [plView, setPlView]             = useState<'yearly' | 'monthly'>('yearly')
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null)
-  const [expandedPeriod,  setExpandedPeriod]  = useState<string | null>(null)
   const [blockFilter, setBlockFilter]         = useState<'all' | 1 | 2>('all')
   const supabase = createClient()
 
@@ -266,35 +267,44 @@ export default function Analytics() {
     color: PALETTE[i % PALETTE.length],
   }))
 
-  // Time breakdown from payments table
+  // P&L table helpers
   const getMonthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-  const getKey = (d: Date) => view === 'month'
-    ? format(d, 'yyyy-MM')
-    : format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const nowKey = getMonthKey(new Date())
 
-  const groups: Record<string, Payment[]> = {}
-  filteredPayments.forEach(p => {
-    const key = getKey(new Date(p.payment_date))
-    groups[key] = [...(groups[key] || []), p]
-  })
-  // Add periods from refunds that may not have payments
-  const refundGroups: Record<string, Student[]> = {}
-  allStudents.filter(s => s.security_deposit_status === 'refunded' || Number(s.refund_amount) > 0).forEach(s => {
-    const refundDate = s.refund_date ? new Date(s.refund_date) : s.vacated_at ? new Date(s.vacated_at) : new Date(s.payment_date)
-    const key = getKey(refundDate)
-    refundGroups[key] = [...(refundGroups[key] || []), s]
-    if (!groups[key]) groups[key] = []
-  })
-  const sortedKeys = Object.keys(groups).sort()
+  // Get all years that have data
+  const allYears = Array.from(new Set([
+    ...filteredPayments.map(p => new Date(p.payment_date).getFullYear()),
+    ...filteredExp.map(e => new Date(e.date).getFullYear()),
+    ...allStudents.filter(s => Number(s.refund_amount) > 0).map(s => new Date(s.refund_date || s.vacated_at || s.payment_date).getFullYear()),
+  ])).sort((a, b) => b - a)
 
-  // Bar chart — from payments
-  const barData = sortedKeys.slice(-6).map((key, i) => ({
-    label: (view === 'month' ? format(new Date(key + '-01'), 'MMM yy') : format(new Date(key), 'dd MMM')) + (key > nowKey ? '*' : ''),
-    value: (groups[key] || []).reduce((s, p) => s + Number(p.amount), 0),
-    sublabel: `${(groups[key] || []).length} payments`,
-    color: PALETTE[i % PALETTE.length],
-  }))
+  // Compute income/exp/pl for a given month key
+  const getMonthPL = (monthKey: string) => {
+    const income = filteredPayments.filter(p => getMonthKey(new Date(p.payment_date)) === monthKey).reduce((s, p) => s + Number(p.amount), 0)
+    const forfeit = allStudents.filter(s => s.security_deposit_status === 'forfeited' && getMonthKey(new Date(s.vacated_at || s.payment_date)) === monthKey).reduce((s, st) => s + Number(st.security_deposit), 0)
+    const manExp  = filteredExp.filter(e => getMonthKey(new Date(e.date)) === monthKey).reduce((s, e) => s + Number(e.amount), 0)
+    const refunds = allStudents.filter(s => Number(s.refund_amount) > 0 && getMonthKey(new Date(s.refund_date || s.vacated_at || s.payment_date)) === monthKey).reduce((s, st) => s + Number(st.refund_amount), 0)
+    const totalIn  = income + forfeit
+    const totalOut = manExp + refunds
+    return { income: totalIn, expenditure: totalOut, pl: totalIn - totalOut }
+  }
+
+  // Yearly rows: 12 months for selectedYear
+  const yearlyRows = Array.from({ length: 12 }, (_, i) => {
+    const monthKey = `${selectedYear}-${String(i + 1).padStart(2, '0')}`
+    const { income, expenditure, pl } = getMonthPL(monthKey)
+    return { monthKey, label: format(new Date(monthKey + '-01'), 'MMMM'), income, expenditure, pl }
+  })
+  const yearTotal = yearlyRows.reduce((s, r) => ({ income: s.income + r.income, expenditure: s.expenditure + r.expenditure, pl: s.pl + r.pl }), { income: 0, expenditure: 0, pl: 0 })
+
+  // Monthly rows: each payment/expense day for selectedMonth
+  const monthlyPayments = filteredPayments.filter(p => getMonthKey(new Date(p.payment_date)) === selectedMonth)
+  const monthlyExp      = filteredExp.filter(e => getMonthKey(new Date(e.date)) === selectedMonth)
+  const monthlyRefunds  = allStudents.filter(s => Number(s.refund_amount) > 0 && getMonthKey(new Date(s.refund_date || s.vacated_at || s.payment_date)) === selectedMonth)
+  const monthlyForfeit  = allStudents.filter(s => s.security_deposit_status === 'forfeited' && getMonthKey(new Date(s.vacated_at || s.payment_date)) === selectedMonth)
+  const monthIncome     = monthlyPayments.reduce((s, p) => s + Number(p.amount), 0) + monthlyForfeit.reduce((s, st) => s + Number(st.security_deposit), 0)
+  const monthExp        = monthlyExp.reduce((s, e) => s + Number(e.amount), 0) + monthlyRefunds.reduce((s, st) => s + Number(st.refund_amount), 0)
+  const monthPL         = monthIncome - monthExp
 
   // Projections — still from students due_date
   const today = new Date(); today.setHours(0,0,0,0)
@@ -321,7 +331,7 @@ export default function Analytics() {
       {/* Block filter */}
       <div style={{ display:'flex', gap:'6px', background:'rgba(255,255,255,0.04)', padding:'5px', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.07)', alignSelf:'flex-start' }}>
         {([['all','All Blocks'],[ 1,'Block 1'],[ 2,'Block 2']] as const).map(([val, label]) => (
-          <button key={String(val)} onClick={() => { setBlockFilter(val as 'all'|1|2); setExpandedAccount(null); setExpandedPeriod(null) }}
+          <button key={String(val)} onClick={() => { setBlockFilter(val as 'all'|1|2); setExpandedAccount(null) }}
             style={{ padding:'7px 18px', borderRadius:'8px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'800', fontSize:'13px', transition:'all 0.2s',
               background: blockFilter === val ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent',
               color: blockFilter === val ? 'white' : '#64748b' }}>
@@ -422,85 +432,141 @@ export default function Analytics() {
         }
       </div>
 
-      {/* Collections — Bar Chart */}
+      {/* P&L Table — Yearly / Monthly */}
       <div style={{ background:'rgba(255,255,255,0.04)', borderRadius:'16px', padding:'20px', border:'1.5px solid rgba(255,255,255,0.07)' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'20px' }}>
-          <div style={{ fontWeight:'800', fontSize:'16px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif" }}>📊 Collections</div>
-          <div style={{ display:'flex', gap:'4px', background:'rgba(255,255,255,0.06)', padding:'4px', borderRadius:'10px' }}>
-            {(['month','week'] as const).map(v => (
-              <button key={v} onClick={() => { setView(v); setExpandedPeriod(null) }} style={{ padding:'5px 12px', borderRadius:'7px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'700', fontSize:'12px', background: view === v ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent', color: view === v ? 'white' : '#64748b' }}>
-                {v === 'month' ? 'Monthly' : 'Weekly'}
-              </button>
-            ))}
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'16px', flexWrap:'wrap', gap:'10px' }}>
+          <div style={{ fontWeight:'800', fontSize:'16px', color:'#e2e8f0', fontFamily:"'Sora', sans-serif" }}>📊 P&L Summary</div>
+          <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+            {/* View toggle */}
+            <div style={{ display:'flex', gap:'4px', background:'rgba(255,255,255,0.06)', padding:'4px', borderRadius:'10px' }}>
+              {(['yearly','monthly'] as const).map(v => (
+                <button key={v} onClick={() => setPlView(v)}
+                  style={{ padding:'5px 12px', borderRadius:'7px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'700', fontSize:'12px',
+                    background: plView === v ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent',
+                    color: plView === v ? 'white' : '#64748b' }}>
+                  {v === 'yearly' ? 'Yearly' : 'Monthly'}
+                </button>
+              ))}
+            </div>
+            {/* Year picker */}
+            {plView === 'yearly' && (
+              <div style={{ display:'flex', gap:'4px', alignItems:'center' }}>
+                <button onClick={() => setSelectedYear(y => y - 1)} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color:'#94a3b8', fontSize:'16px' }}>‹</button>
+                <span style={{ color:'#e2e8f0', fontWeight:'800', fontSize:'14px', minWidth:'44px', textAlign:'center' }}>{selectedYear}</span>
+                <button onClick={() => setSelectedYear(y => y + 1)} disabled={selectedYear >= new Date().getFullYear()} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color: selectedYear >= new Date().getFullYear() ? '#334155' : '#94a3b8', fontSize:'16px' }}>›</button>
+              </div>
+            )}
+            {/* Month picker */}
+            {plView === 'monthly' && (
+              <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                style={{ padding:'5px 10px', borderRadius:'8px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'12px', fontFamily:'inherit', outline:'none' }} />
+            )}
           </div>
         </div>
 
-        {/* Bar chart */}
-        {barData.length > 0 && (
-          <div style={{ position:'relative', marginBottom:'20px' }}>
-            <BarChart bars={barData} height={140} />
+        {/* Column headers */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', marginBottom:'8px', padding:'0 4px' }}>
+          {['Month','Income','Expenditure','P&L'].map(h => (
+            <div key={h} style={{ color:'#475569', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', textAlign: h === 'Month' ? 'left' : 'right' }}>{h}</div>
+          ))}
+        </div>
+
+        {/* Yearly view — 12 month rows */}
+        {plView === 'yearly' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+            {yearlyRows.map(r => {
+              const isCurrentMonth = r.monthKey === nowKey
+              const isFuture = r.monthKey > nowKey
+              const pl = r.pl
+              return (
+                <div key={r.monthKey} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', padding:'10px 8px', borderRadius:'10px', background: isCurrentMonth ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)', border:`1px solid ${isCurrentMonth ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.04)'}`, opacity: isFuture ? 0.4 : 1 }}>
+                  <div style={{ color: isCurrentMonth ? '#a5b4fc' : '#94a3b8', fontSize:'13px', fontWeight: isCurrentMonth ? '800' : '600', display:'flex', alignItems:'center', gap:'4px' }}>
+                    {r.label}{isCurrentMonth && <span style={{ fontSize:'9px', background:'rgba(99,102,241,0.2)', color:'#a5b4fc', padding:'1px 5px', borderRadius:'4px', fontWeight:'700' }}>NOW</span>}
+                  </div>
+                  <div style={{ textAlign:'right', color: r.income > 0 ? '#4ade80' : '#334155', fontSize:'13px', fontWeight:'700' }}>{r.income > 0 ? `₹${r.income.toLocaleString('en-IN')}` : '—'}</div>
+                  <div style={{ textAlign:'right', color: r.expenditure > 0 ? '#f87171' : '#334155', fontSize:'13px', fontWeight:'700' }}>{r.expenditure > 0 ? `₹${r.expenditure.toLocaleString('en-IN')}` : '—'}</div>
+                  <div style={{ textAlign:'right', color: pl > 0 ? '#4ade80' : pl < 0 ? '#f87171' : '#475569', fontSize:'13px', fontWeight:'800' }}>{pl !== 0 ? `${pl > 0 ? '+' : '-'}₹${Math.abs(pl).toLocaleString('en-IN')}` : '—'}</div>
+                </div>
+              )
+            })}
+            {/* Year total row */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', padding:'12px 8px', borderRadius:'10px', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', marginTop:'4px' }}>
+              <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'800' }}>Total {selectedYear}</div>
+              <div style={{ textAlign:'right', color:'#4ade80', fontSize:'13px', fontWeight:'800' }}>₹{yearTotal.income.toLocaleString('en-IN')}</div>
+              <div style={{ textAlign:'right', color:'#f87171', fontSize:'13px', fontWeight:'800' }}>₹{yearTotal.expenditure.toLocaleString('en-IN')}</div>
+              <div style={{ textAlign:'right', color: yearTotal.pl >= 0 ? '#4ade80' : '#f87171', fontSize:'13px', fontWeight:'800' }}>{yearTotal.pl >= 0 ? '+' : '-'}₹{Math.abs(yearTotal.pl).toLocaleString('en-IN')}</div>
+            </div>
           </div>
         )}
 
-        {/* Clickable period rows */}
-        <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-          {sortedKeys.slice().reverse().map(key => {
-            const grpPayments = groups[key] || []
-            const grpRefunds  = refundGroups[key] || []
-            const fees    = grpPayments.reduce((s, p) => s + Number(p.amount), 0)
-            const refunds = grpRefunds.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
-            const net     = fees - refunds
-            const isOpen  = expandedPeriod === key
-            const isFuture = key > nowKey
-            const label   = view === 'month'
-              ? format(new Date(key + '-01'), 'MMMM yyyy') + (isFuture ? ' 🔮' : '')
-              : `Week of ${format(new Date(key), 'dd MMM yyyy')}` + (isFuture ? ' 🔮' : '')
-
-            return (
-              <div key={key}>
-                <div onClick={() => setExpandedPeriod(isOpen ? null : key)}
-                  style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 14px', borderRadius:'11px', background: isOpen ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)', border:`1px solid ${isOpen ? 'rgba(99,102,241,0.25)' : 'rgba(255,255,255,0.05)'}`, cursor:'pointer', transition:'all 0.15s' }}>
-                  <div>
-                    <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'700' }}>{label}</div>
-                    <div style={{ color:'#64748b', fontSize:'11px', marginTop:'1px' }}>{grpPayments.length} payments{refunds > 0 ? ` · -₹${refunds.toLocaleString('en-IN')} refunds` : ''}</div>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                    <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'15px', fontFamily:"'Sora', sans-serif" }}>₹{net.toLocaleString('en-IN')}</div>
-                    <div style={{ color:'#64748b', fontSize:'16px', transition:'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)' }}>›</div>
-                  </div>
-                </div>
-                {isOpen && (
-                  <div style={{ marginTop:'6px', marginLeft:'8px', display:'flex', flexDirection:'column', gap:'5px', animation:'fadeIn 0.2s ease' }}>
-                    <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', marginBottom:'4px' }}>
-                      <span style={{ padding:'3px 8px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', background:'rgba(74,222,128,0.1)', color:'#4ade80' }}>+₹{fees.toLocaleString('en-IN')} fees</span>
-                      {refunds > 0 && <span style={{ padding:'3px 8px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', background:'rgba(239,68,68,0.1)', color:'#f87171' }}>-₹{refunds.toLocaleString('en-IN')} refunds</span>}
-                      <span style={{ padding:'3px 8px', borderRadius:'6px', fontSize:'11px', fontWeight:'700', background:'rgba(99,102,241,0.1)', color:'#a5b4fc' }}>= ₹{net.toLocaleString('en-IN')} net</span>
+        {/* Monthly view — income/exp totals + line items */}
+        {plView === 'monthly' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+            {/* Month totals */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', padding:'12px 8px', borderRadius:'10px', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ color:'#e2e8f0', fontSize:'13px', fontWeight:'800' }}>{format(new Date(selectedMonth + '-01'), 'MMM yyyy')}</div>
+              <div style={{ textAlign:'right', color:'#4ade80', fontSize:'13px', fontWeight:'800' }}>₹{monthIncome.toLocaleString('en-IN')}</div>
+              <div style={{ textAlign:'right', color:'#f87171', fontSize:'13px', fontWeight:'800' }}>₹{monthExp.toLocaleString('en-IN')}</div>
+              <div style={{ textAlign:'right', color: monthPL >= 0 ? '#4ade80' : '#f87171', fontSize:'13px', fontWeight:'800' }}>{monthPL >= 0 ? '+' : '-'}₹{Math.abs(monthPL).toLocaleString('en-IN')}</div>
+            </div>
+            {/* Income line items */}
+            {monthlyPayments.length > 0 && (
+              <div>
+                <div style={{ color:'#4ade80', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'6px', paddingLeft:'4px' }}>💰 Income</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                  {monthlyPayments.map((p, i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(74,222,128,0.04)', border:'1px solid rgba(74,222,128,0.1)' }}>
+                      <div>
+                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{p.student_name}</div>
+                        <div style={{ color:'#64748b', fontSize:'10px' }}>Block {p.block}{p.seat_number ? ` · Seat ${p.seat_number}` : ''} · {p.account} · {format(new Date(p.payment_date), 'dd MMM')}{p.notes ? ` · ${p.notes}` : ''}</div>
+                      </div>
+                      <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'13px' }}>+₹{Number(p.amount).toLocaleString('en-IN')}</div>
                     </div>
-                    {grpPayments.map((p, j) => (
-                      <div key={j} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.05)' }}>
-                        <div>
-                          <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{p.student_name}</div>
-                          <div style={{ color:'#64748b', fontSize:'10px' }}>Block {p.block}{p.seat_number ? ` · Seat ${p.seat_number}` : ''} · {p.account}{p.notes ? ` · ${p.notes}` : ''}</div>
-                        </div>
-                        <div style={{ color:'#4ade80', fontWeight:'800', fontSize:'13px' }}>+₹{Number(p.amount).toLocaleString('en-IN')}</div>
+                  ))}
+                  {monthlyForfeit.map((s, i) => (
+                    <div key={`f-${i}`} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(74,222,128,0.04)', border:'1px solid rgba(74,222,128,0.1)' }}>
+                      <div>
+                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>❌ {s.name} — Deposit Forfeited</div>
+                        <div style={{ color:'#64748b', fontSize:'10px' }}>Block {s.block}</div>
                       </div>
-                    ))}
-                    {grpRefunds.map((s, j) => (
-                      <div key={`ref-${j}`} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.1)' }}>
-                        <div>
-                          <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>↩️ {s.name}</div>
-                          <div style={{ color:'#64748b', fontSize:'10px' }}>{s.security_deposit_status === 'refunded' ? 'Deposit Refund' : 'Fee Refund'}</div>
-                        </div>
-                        <div style={{ color:'#f87171', fontWeight:'800', fontSize:'13px' }}>-₹{(s.security_deposit_status === 'refunded' ? Number(s.security_deposit) : Number(s.refund_amount)).toLocaleString('en-IN')}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      <div style={{ color:'#fb923c', fontWeight:'800', fontSize:'13px' }}>+₹{Number(s.security_deposit).toLocaleString('en-IN')}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            )
-          })}
-          {sortedKeys.length === 0 && <p style={{ color:'#475569', fontSize:'13px' }}>No payment data yet</p>}
-        </div>
+            )}
+            {/* Expenditure line items */}
+            {(monthlyExp.length > 0 || monthlyRefunds.length > 0 || monthlyForfeit.length > 0) && (
+              <div>
+                <div style={{ color:'#f87171', fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'6px', paddingLeft:'4px' }}>📤 Expenditure</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                  {monthlyExp.map((e, i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.1)' }}>
+                      <div>
+                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>{e.category}</div>
+                        <div style={{ color:'#64748b', fontSize:'10px' }}>{e.account} · {format(new Date(e.date), 'dd MMM')}{e.description ? ` · ${e.description}` : ''}</div>
+                      </div>
+                      <div style={{ color:'#f87171', fontWeight:'800', fontSize:'13px' }}>-₹{Number(e.amount).toLocaleString('en-IN')}</div>
+                    </div>
+                  ))}
+                  {monthlyRefunds.map((s, i) => (
+                    <div key={`r-${i}`} style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px', borderRadius:'8px', background:'rgba(239,68,68,0.04)', border:'1px solid rgba(239,68,68,0.1)' }}>
+                      <div>
+                        <div style={{ color:'#e2e8f0', fontSize:'12px', fontWeight:'700' }}>↩️ {s.name} — Fee Refund</div>
+                        <div style={{ color:'#64748b', fontSize:'10px' }}>Block {s.block}</div>
+                      </div>
+                      <div style={{ color:'#f87171', fontWeight:'800', fontSize:'13px' }}>-₹{Number(s.refund_amount).toLocaleString('en-IN')}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {monthlyPayments.length === 0 && monthlyExp.length === 0 && monthlyRefunds.length === 0 && monthlyForfeit.length === 0 && (
+              <div style={{ textAlign:'center', padding:'30px 0', color:'#475569', fontSize:'13px' }}>No transactions for this month</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Projected Renewals */}
