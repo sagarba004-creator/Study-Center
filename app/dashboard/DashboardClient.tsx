@@ -126,9 +126,8 @@ export default function DashboardClient() {
     { key:'block1',    label:'Block 1',      emoji:'🏠', allowedRoles:['admin','staff','viewer'] },
     { key:'block2',    label:'Block 2',      emoji:'🏢', allowedRoles:['admin','staff','viewer'] },
     { key:'students',  label:'Students',     emoji:'👥', allowedRoles:['admin','staff','viewer'] },
-    { key:'history',   label:'Old Students', emoji:'🗂️', allowedRoles:['admin','staff','viewer'] },
+    { key:'transactions', label:'Transactions', emoji:'💳', allowedRoles:['admin'] },
     { key:'analytics',   label:'Analytics',    emoji:'📊', allowedRoles:['admin'] },
-    { key:'expenditure', label:'Expenditure',  emoji:'📤', allowedRoles:['admin'] },
   ]
 
   const badge = roleBadge[role]
