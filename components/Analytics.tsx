@@ -228,21 +228,32 @@ export default function Analytics() {
     color: PALETTE[i % PALETTE.length],
   }))
 
-  // Time breakdown
+  // Time breakdown — grouped by payment_date for fees, refund_date/vacated_at for refunds
   const getMonthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+  const getKey = (d: Date) => view === 'month'
+    ? format(d, 'yyyy-MM')
+    : format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const nowKey = getMonthKey(new Date())
+  // groups: period -> students whose PAYMENT belongs to that period
   const groups: Record<string, Student[]> = {}
   allStudents.forEach(s => {
-    const d   = new Date(s.payment_date)
-    const key = view === 'month'
-      ? format(d, 'yyyy-MM')
-      : format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    const key = getKey(new Date(s.payment_date))
     groups[key] = [...(groups[key] || []), s]
+  })
+  // refundGroups: period -> students whose REFUND belongs to that period (by refund_date or vacated_at)
+  const refundGroups: Record<string, Student[]> = {}
+  allStudents.filter(s => s.security_deposit_status === 'refunded' || Number(s.refund_amount) > 0).forEach(s => {
+    const refundDate = s.refund_date ? new Date(s.refund_date) : s.vacated_at ? new Date(s.vacated_at) : new Date(s.payment_date)
+    const key = getKey(refundDate)
+    refundGroups[key] = [...(refundGroups[key] || []), s]
+    // Also ensure this period exists in groups even if no payment was in it
+    if (!groups[key]) groups[key] = []
   })
   const sortedKeys = Object.keys(groups).sort()
 
   // Bar chart data — last 6 periods
   const barData = sortedKeys.slice(-6).map((key, i) => ({
-    label: view === 'month' ? format(new Date(key + '-01'), 'MMM yy') : format(new Date(key), 'dd MMM'),
+    label: (view === 'month' ? format(new Date(key + '-01'), 'MMM yy') : format(new Date(key), 'dd MMM')) + (key > nowKey ? '*' : ''),
     value: groups[key].reduce((s, st) => s + Number(st.amount), 0),
     sublabel: `${groups[key].length} students`,
     color: PALETTE[i % PALETTE.length],
@@ -382,21 +393,28 @@ export default function Analytics() {
           {sortedKeys.slice().reverse().map(key => {
             const grp     = groups[key]
             const fees    = grp.reduce((s, st) => s + Number(st.amount), 0)
-            const refunds = grp.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
+            const refunds = (refundGroups[key] || []).filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
             const net     = fees - refunds
             const isOpen  = expandedPeriod === key
+            const isFuture = key > nowKey
             const label   = view === 'month'
-              ? format(new Date(key + '-01'), 'MMMM yyyy')
-              : `Week of ${format(new Date(key), 'dd MMM yyyy')}`
+              ? format(new Date(key + '-01'), 'MMMM yyyy') + (isFuture ? ' 🔮' : '')
+              : `Week of ${format(new Date(key), 'dd MMM yyyy')}` + (isFuture ? ' 🔮' : '')
             const txns: { student: Student; type: 'credit'|'debit'|'deposit'|'forfeit'|'feerefund'; date: Date }[] = []
             grp.forEach(s => {
               txns.push({ student:s, type:'credit',  date:new Date(s.payment_date) })
               if (s.security_deposit > 0 && s.security_deposit_status === 'collected' && s.is_active)
                 txns.push({ student:s, type:'deposit', date:new Date(s.payment_date) })
+            })
+            // Add refunds/forfeits from refundGroups for this period
+            ;(refundGroups[key] || []).forEach(s => {
+              const refundDate = s.refund_date ? new Date(s.refund_date) : s.vacated_at ? new Date(s.vacated_at) : new Date()
               if (s.security_deposit > 0 && s.security_deposit_status === 'refunded')
-                txns.push({ student:s, type:'debit',   date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
+                txns.push({ student:s, type:'debit',      date:refundDate })
               if (s.security_deposit > 0 && s.security_deposit_status === 'forfeited')
-                txns.push({ student:s, type:'forfeit', date:s.vacated_at ? new Date(s.vacated_at) : new Date() })
+                txns.push({ student:s, type:'forfeit',    date:refundDate })
+              if (Number(s.refund_amount) > 0)
+                txns.push({ student:s, type:'feerefund',  date:refundDate })
             })
             txns.sort((a,b) => b.date.getTime() - a.date.getTime())
 
