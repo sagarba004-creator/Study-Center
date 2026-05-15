@@ -180,6 +180,7 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
       address:                 form.address,
       college:                 form.college,
       duration_months:         durationToMonths(form.duration),
+      duration:                form.duration,
       payment_date:            form.payment_date,
       amount:                  Number(form.amount),
       account:                 form.account,

@@ -15,6 +15,7 @@ export interface Student {
   address: string
   college: string
   duration_months: number
+  duration: string | null
   payment_date: string
   amount: number
   account: string

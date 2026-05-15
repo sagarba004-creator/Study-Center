@@ -44,6 +44,17 @@ const inp: React.CSSProperties = {
 
 type Panel = 'main' | 'renew' | 'vacate' | 'transfer'
 
+
+function formatDuration(d: string | null | undefined): string {
+  if (!d) return '—'
+  const val = parseInt(d)
+  const unit = d.slice(-1)
+  if (unit === 'd') return val === 1 ? '1 Day' : `${val} Days`
+  if (unit === 'm') return val === 1 ? '1 Month' : `${val} Months`
+  if (unit === 'y') return val === 1 ? '1 Year' : `${val} Years`
+  return d
+}
+
 export default function SeatModal({ student, seatNumber, block, status, isAdmin, canEdit, canVacate, allSeats, onClose, onAddStudent, onEditStudent, onVacateSeat, onRefresh }: Props) {
   const supabase = createClient()
   const cfg      = STATUS_CONFIG[status]
@@ -109,6 +120,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
         if (unit === 'm') return student.duration_months + val
         return student.duration_months + val * 12
       })(),
+      duration:        renewDuration,
       payment_date:    format(new Date(), 'yyyy-MM-dd'),
       amount:          Number(renewAmount),
       account:         renewAccount,
@@ -228,7 +240,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                 <InfoBox icon="📖" label="Exam"     value={student.exam} />
                 <InfoBox icon="🎓" label="College"  value={student.college} />
                 <InfoBox icon="📅" label="Joined"   value={format(new Date(student.joining_date), 'dd MMM yyyy')} />
-                <InfoBox icon="⏱️" label="Duration" value={`${student.duration_months} month${student.duration_months > 1 ? 's' : ''}`} />
+                <InfoBox icon="⏱️" label="Duration" value={student.duration ? formatDuration(student.duration) : `${student.duration_months} month${student.duration_months > 1 ? 's' : ''}`} />
                 {student.phone && <InfoBox icon="📱" label="Phone" value={student.phone} />}
               </div>
 
