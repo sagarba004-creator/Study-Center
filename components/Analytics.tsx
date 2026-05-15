@@ -445,7 +445,8 @@ export default function Analytics() {
         {/* Clickable period rows */}
         <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
           {sortedKeys.slice().reverse().map(key => {
-            const grp     = groups[key]
+            const grpPayments = groups[key] || []
+            const grpRefunds  = refundGroups[key] || []
             const fees    = grpPayments.reduce((s, p) => s + Number(p.amount), 0)
             const refunds = grpRefunds.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
             const net     = fees - refunds
@@ -454,8 +455,6 @@ export default function Analytics() {
             const label   = view === 'month'
               ? format(new Date(key + '-01'), 'MMMM yyyy') + (isFuture ? ' 🔮' : '')
               : `Week of ${format(new Date(key), 'dd MMM yyyy')}` + (isFuture ? ' 🔮' : '')
-            const grpPayments = groups[key] || []
-            const grpRefunds  = refundGroups[key] || []
 
             return (
               <div key={key}>
