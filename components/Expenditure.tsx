@@ -41,7 +41,7 @@ export default function Expenditure() {
 
   const [form, setForm] = useState({
     date: today, amount: '', account: 'Cash',
-    category: 'Rent', description: '', block: '1' as '1' | '2',
+    category: 'Rent', description: '', block: '1' as '1' | '2' | '',
   })
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function Expenditure() {
     setEditingId(e.id)
     setForm({
       date: e.date, amount: String(e.amount), account: e.account,
-      category: e.category, description: e.description || '', block: e.block ? String(e.block) as '1'|'2' : '',
+      category: e.category, description: e.description || '', block: (e.block ? String(e.block) : '1') as '1'|'2',
     })
     setShowForm(true)
   }
