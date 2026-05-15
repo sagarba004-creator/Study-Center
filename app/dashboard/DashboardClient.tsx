@@ -8,9 +8,10 @@ import Block2Grid from '@/components/Block2Grid'
 import SeatModal from '@/components/SeatModal'
 import StudentForm from '@/components/StudentForm'
 import Analytics from '@/components/Analytics'
+import Expenditure from '@/components/Expenditure'
 import LockerGrid from '@/components/LockerGrid'
 
-type Tab = 'block1' | 'block2' | 'students' | 'analytics' | 'history'
+type Tab = 'block1' | 'block2' | 'students' | 'analytics' | 'expenditure' | 'history'
 type Role = 'admin' | 'staff' | 'viewer'
 
 const BLOCK1_ALL = [
@@ -123,7 +124,8 @@ export default function DashboardClient() {
     { key:'block2',    label:'Block 2',      emoji:'🏢', allowedRoles:['admin','staff','viewer'] },
     { key:'students',  label:'Students',     emoji:'👥', allowedRoles:['admin','staff','viewer'] },
     { key:'history',   label:'Old Students', emoji:'🗂️', allowedRoles:['admin','staff','viewer'] },
-    { key:'analytics', label:'Analytics',    emoji:'📊', allowedRoles:['admin'] },
+    { key:'analytics',   label:'Analytics',    emoji:'📊', allowedRoles:['admin'] },
+    { key:'expenditure', label:'Expenditure',  emoji:'📤', allowedRoles:['admin'] },
   ]
 
   const badge = roleBadge[role]
@@ -243,7 +245,10 @@ export default function DashboardClient() {
             )}
 
             {/* ANALYTICS */}
-            {tab === 'analytics' && isAdmin && <Analytics />}
+            {tab === 'analytics'   && isAdmin && <Analytics />}
+
+            {/* EXPENDITURE */}
+            {tab === 'expenditure' && isAdmin && <Expenditure />}
 
             {/* STUDENTS LIST */}
             {tab === 'students' && (
