@@ -194,6 +194,7 @@ export default function Analytics() {
   const [view, setView]               = useState<'month' | 'week'>('month')
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null)
   const [expandedPeriod,  setExpandedPeriod]  = useState<string | null>(null)
+  const [blockFilter, setBlockFilter]         = useState<'all' | 1 | 2>('all')
   const supabase = createClient()
 
   useEffect(() => {
@@ -206,12 +207,14 @@ export default function Analytics() {
     })
   }, [])
 
-  const allStudents       = [...students, ...oldStudents]
+  const allStudentsRaw    = [...students, ...oldStudents]
+  const allStudents       = blockFilter === 'all' ? allStudentsRaw : allStudentsRaw.filter(s => s.block === blockFilter)
+  const filteredActive    = blockFilter === 'all' ? students : students.filter(s => s.block === blockFilter)
   const totalRevenue      = allStudents.reduce((s, st) => s + Number(st.amount), 0)
   const totalLockerRev    = allStudents.filter(s => (s.locker_numbers || []).length > 0).reduce((s, st) => s + Number(st.locker_amount || 0), 0)
   const totalFeeRefunds   = allStudents.reduce((s, st) => s + Number(st.refund_amount || 0), 0)
   const netRevenue        = totalRevenue - totalFeeRefunds
-  const depositsHeld      = students.filter(s => s.security_deposit_status === 'collected').reduce((s, st) => s + Number(st.security_deposit), 0)
+  const depositsHeld      = filteredActive.filter(s => s.security_deposit_status === 'collected').reduce((s, st) => s + Number(st.security_deposit), 0)
   const depositsForfeited = allStudents.filter(s => s.security_deposit_status === 'forfeited').reduce((s, st) => s + Number(st.security_deposit), 0)
   const depositsRefunded  = allStudents.filter(s => s.security_deposit_status === 'refunded').reduce((s, st) => s + Number(st.security_deposit), 0)
 
@@ -264,7 +267,7 @@ export default function Analytics() {
   const projectionMonths = Array.from({ length: 3 }, (_, i) => {
     const d   = new Date(today); d.setMonth(d.getMonth() + i)
     const key = getMonthKey(d)
-    const due = students.filter(s => getMonthKey(new Date(s.due_date)) === key)
+    const due = filteredActive.filter(s => getMonthKey(new Date(s.due_date)) === key)
     return { key, label: format(d, 'MMMM yyyy'), students: due, estimated: due.reduce((s, st) => s + Number(st.amount), 0) }
   })
   const totalProjected = projectionMonths.reduce((s, m) => s + m.estimated, 0)
@@ -297,13 +300,25 @@ export default function Analytics() {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
 
+      {/* Block filter */}
+      <div style={{ display:'flex', gap:'6px', background:'rgba(255,255,255,0.04)', padding:'5px', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.07)', alignSelf:'flex-start' }}>
+        {([['all','All Blocks'],[ 1,'Block 1'],[ 2,'Block 2']] as const).map(([val, label]) => (
+          <button key={String(val)} onClick={() => { setBlockFilter(val as 'all'|1|2); setExpandedAccount(null); setExpandedPeriod(null) }}
+            style={{ padding:'7px 18px', borderRadius:'8px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'800', fontSize:'13px', transition:'all 0.2s',
+              background: blockFilter === val ? 'linear-gradient(135deg,#6366f1,#ec4899)' : 'transparent',
+              color: blockFilter === val ? 'white' : '#64748b' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Summary cards */}
       <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
         {card('💰', 'Total Fees',         `₹${totalRevenue.toLocaleString('en-IN')}`,      '#4ade80')}
         {totalLockerRev > 0 && card('🔒', 'Locker Revenue', `₹${totalLockerRev.toLocaleString('en-IN')}`, '#67e8f9')}
         {totalFeeRefunds > 0 && card('↩️', 'Fee Refunds',  `₹${totalFeeRefunds.toLocaleString('en-IN')}`, '#f87171', 'outflow')}
         {totalFeeRefunds > 0 && card('💵', 'Net Revenue',  `₹${netRevenue.toLocaleString('en-IN')}`,      '#4ade80', 'after refunds')}
-        {card('👥', 'Active Students',    String(students.length),                          '#a5b4fc')}
+        {card('👥', 'Active Students',    String(filteredActive.length),                    '#a5b4fc')}
         {depositsHeld > 0      && card('🔐', 'Deposits Held',     `₹${depositsHeld.toLocaleString('en-IN')}`,      '#fde047', 'liability')}
         {depositsForfeited > 0 && card('❌', 'Deposits Forfeited', `₹${depositsForfeited.toLocaleString('en-IN')}`, '#fb923c', 'income')}
         {depositsRefunded > 0  && card('↩️', 'Deposits Refunded', `₹${depositsRefunded.toLocaleString('en-IN')}`,  '#f87171', 'outflow')}
