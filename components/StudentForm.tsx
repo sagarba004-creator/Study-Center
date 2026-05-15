@@ -86,8 +86,6 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   const [searching, setSearching]     = useState(false)
   const today = format(new Date(), 'yyyy-MM-dd')
   const isEdit = !!student?.id
-  // For renewals, roll forward from the existing due_date not joining_date
-  const renewalBase = isEdit && student?.due_date ? student.due_date : null
 
   const [form, setForm] = useState({
     name:                    student?.name || '',
@@ -112,16 +110,21 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   })
 
   // Recalc due date whenever joining_date or duration changes
-  // For renewals (edit mode): base = existing due_date so overdue days are preserved
-  // For new students: base = joining_date
   useEffect(() => {
-    const base = renewalBase || form.joining_date
-    const due = calcDueDate(base, form.duration)
+    const due = calcDueDate(form.joining_date, form.duration)
     setForm(f => ({ ...f, due_date: due }))
   }, [form.joining_date, form.duration])
 
+  const [lockerDuration, setLockerDuration] = useState('1m')
   const set = (k: string, v: string | number) => setForm(f => ({ ...f, [k]: v }))
   const setArr = (k: string, v: number[]) => setForm(f => ({ ...f, [k]: v }))
+
+  // Recalc locker due date when locker duration or start date changes
+  useEffect(() => {
+    if (!form.locker_start_date) return
+    const due = calcDueDate(form.locker_start_date, lockerDuration)
+    setForm(f => ({ ...f, locker_due_date: due }))
+  }, [lockerDuration, form.locker_start_date])
 
   // Search old (inactive) students
   useEffect(() => {
@@ -435,47 +438,19 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
                       { label:'1 Month', value:'1m' }, { label:'2 Months', value:'2m' },
                       { label:'3 Months', value:'3m' }, { label:'6 Months', value:'6m' },
                       { label:'1 Year', value:'1y' },
-                    ].map(opt => {
-                      const isSelected = (() => {
-                        if (!form.locker_start_date || !form.locker_due_date) return false
-                        const base = new Date(form.locker_start_date)
-                        const val = parseInt(opt.value); const unit = opt.value.slice(-1)
-                        let expected: Date
-                        if (unit === 'd') expected = addDays(base, val)
-                        else if (unit === 'm') expected = addMonths(base, val)
-                        else expected = addYears(base, val)
-                        return format(expected, 'yyyy-MM-dd') === form.locker_due_date
-                      })()
-                      return (
-                        <button key={opt.value} type="button" onClick={() => {
-                          const base = new Date(form.locker_start_date || today)
-                          const val = parseInt(opt.value); const unit = opt.value.slice(-1)
-                          let due: Date
-                          if (unit === 'd') due = addDays(base, val)
-                          else if (unit === 'm') due = addMonths(base, val)
-                          else due = addYears(base, val)
-                          set('locker_due_date', format(due, 'yyyy-MM-dd'))
-                        }}
-                          style={{ padding:'5px 11px', borderRadius:'20px', border:`2px solid ${isSelected ? 'rgba(99,102,241,0.7)' : 'rgba(255,255,255,0.1)'}`, cursor:'pointer', background: isSelected ? 'rgba(99,102,241,0.2)' : 'transparent', color: isSelected ? '#a5b4fc' : '#64748b', fontWeight:'700', fontSize:'11px', fontFamily:'inherit', transition:'all 0.15s' }}>
-                          {opt.label}
-                        </button>
-                      )
-                    })}
+                    ].map(opt => (
+                      <button key={opt.value} type="button" onClick={() => setLockerDuration(opt.value)}
+                        style={{ padding:'5px 11px', borderRadius:'20px', border:`2px solid ${lockerDuration === opt.value ? 'rgba(99,102,241,0.7)' : 'rgba(255,255,255,0.1)'}`, cursor:'pointer', background: lockerDuration === opt.value ? 'rgba(99,102,241,0.2)' : 'transparent', color: lockerDuration === opt.value ? '#a5b4fc' : '#64748b', fontWeight:'700', fontSize:'11px', fontFamily:'inherit', transition:'all 0.15s' }}>
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 {/* Start date + due date */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
                   <div>
                     <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Locker Start Date *</label>
-                    <input type="date" value={form.locker_start_date} onChange={e => {
-                      const base = new Date(e.target.value)
-                      const newDue = form.locker_due_date ? (() => {
-                        // recalc due relative to new start if due was already set
-                        return form.locker_due_date
-                      })() : ''
-                      set('locker_start_date', e.target.value)
-                      if (!newDue) set('locker_due_date', '')
-                    }} style={{ ...inp }} />
+                    <input type="date" value={form.locker_start_date} onChange={e => set('locker_start_date', e.target.value)} style={{ ...inp }} />
                   </div>
                   <div>
                     <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Locker Due Date (auto)</label>
