@@ -250,8 +250,9 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                           <span key={n} style={{ padding:'3px 10px', borderRadius:'6px', background:'rgba(99,102,241,0.2)', border:'1px solid rgba(99,102,241,0.4)', color:'#a5b4fc', fontSize:'12px', fontWeight:'800', fontFamily:"'Sora', sans-serif" }}>#{n}</span>
                         ))}
                       </div>
-                      <div style={{ color:'#64748b', fontSize:'11px' }}>
-                        ₹{Number(student.locker_amount).toLocaleString('en-IN')} · {student.locker_account || student.account}
+                      <div style={{ color:'#64748b', fontSize:'11px', display:'flex', flexDirection:'column', gap:'2px' }}>
+                        <span>₹{Number(student.locker_amount).toLocaleString('en-IN')} · {student.locker_account || student.account}</span>
+                        {student.locker_start_date && <span>📅 {format(new Date(student.locker_start_date), 'dd MMM yyyy')} → {student.locker_due_date ? format(new Date(student.locker_due_date), 'dd MMM yyyy') : '—'}</span>}
                       </div>
                     </div>
                   )}
@@ -265,7 +266,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                         <span style={{ padding:'3px 10px', borderRadius:'10px', fontSize:'11px', fontWeight:'700',
                           background: student.security_deposit_status === 'collected' ? 'rgba(251,191,36,0.15)' : student.security_deposit_status === 'refunded' ? 'rgba(99,102,241,0.15)' : 'rgba(239,68,68,0.15)',
                           color: student.security_deposit_status === 'collected' ? '#fde047' : student.security_deposit_status === 'refunded' ? '#a5b4fc' : '#f87171' }}>
-                          {student.security_deposit_status === 'collected' ? '✅ Collected' : student.security_deposit_status === 'refunded' ? '↩️ Refunded' : '❌ Forfeited'}
+                          {student.security_deposit_status === 'collected' ? '✅ Collected' : student.security_deposit_status === 'refunded' ? '↩️ Refunded' : student.security_deposit_status === 'forfeited' ? '❌ Forfeited' : '🚫 Not Collected'}
                         </span>
                       </div>
                     </div>
@@ -297,7 +298,7 @@ export default function SeatModal({ student, seatNumber, block, status, isAdmin,
                 <div style={{ color:'#64748b', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', marginBottom:'3px' }}>Current Due Date</div>
                 <div style={{ color: daysLeft !== null && daysLeft < 0 ? '#f87171' : '#94a3b8', fontWeight:'700', fontSize:'14px' }}>
                   {format(new Date(student.due_date), 'dd MMMM yyyy')}
-                  {daysLeft !== null && daysLeft < 0 && <span style={{ marginLeft:'8px', fontSize:'11px', color:'#f87171' }}>({Math.abs(daysLeft)}d overdue — renews from today)</span>}
+                  {daysLeft !== null && daysLeft < 0 && <span style={{ marginLeft:'8px', fontSize:'11px', color:'#f87171' }}>({Math.abs(daysLeft)}d overdue)</span>}
                 </div>
               </div>
               <form onSubmit={handleRenew} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>

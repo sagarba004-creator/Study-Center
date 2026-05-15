@@ -30,6 +30,8 @@ export interface Student {
   locker_numbers: number[]
   locker_amount: number
   locker_account: string | null
+  locker_start_date: string | null
+  locker_due_date: string | null
   refund_amount: number
   refund_account: string | null
   refund_date: string | null
