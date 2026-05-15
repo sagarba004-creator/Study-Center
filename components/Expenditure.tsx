@@ -41,7 +41,7 @@ export default function Expenditure() {
 
   const [form, setForm] = useState({
     date: today, amount: '', account: 'Cash',
-    category: 'Rent', description: '', block: '' as '' | '1' | '2',
+    category: 'Rent', description: '', block: '1' as '1' | '2',
   })
 
   useEffect(() => {
@@ -61,12 +61,12 @@ export default function Expenditure() {
       .then(({ data }) => { if (data) setExpenditures(data as Expenditure[]) })
 
   const handleSave = async () => {
-    if (!form.amount || Number(form.amount) <= 0) return
+    if (!form.amount || Number(form.amount) <= 0 || !form.block) return
     setSaving(true)
     const payload = {
       date: form.date, amount: Number(form.amount), account: form.account,
       category: form.category, description: form.description || null,
-      block: form.block ? Number(form.block) : null,
+      block: Number(form.block),
     }
     if (editingId) {
       await supabase.from('expenditures').update(payload).eq('id', editingId)
@@ -76,7 +76,7 @@ export default function Expenditure() {
     setSaving(false)
     setShowForm(false)
     setEditingId(null)
-    setForm({ date: today, amount: '', account: 'Cash', category: 'Rent', description: '', block: '' })
+    setForm({ date: today, amount: '', account: 'Cash', category: 'Rent', description: '', block: '1' })
     reload()
   }
 
@@ -169,7 +169,7 @@ export default function Expenditure() {
             </button>
           ))}
         </div>
-        <button onClick={() => { setShowForm(true); setEditingId(null); setForm({ date: today, amount: '', account: 'Cash', category: 'Rent', description: '', block: '' }) }}
+        <button onClick={() => { setShowForm(true); setEditingId(null); setForm({ date: today, amount: '', account: 'Cash', category: 'Rent', description: '', block: '1' }) }}
           style={{ marginLeft:'auto', padding:'8px 16px', borderRadius:'10px', border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:'800', fontSize:'13px', background:'linear-gradient(135deg,#6366f1,#ec4899)', color:'white' }}>
           + Add Expenditure
         </button>
@@ -366,7 +366,6 @@ export default function Expenditure() {
               <div>
                 <label style={{ display:'block', color:'#94a3b8', fontSize:'10px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'5px' }}>Block</label>
                 <select value={form.block} onChange={e => set('block', e.target.value)} style={{ ...inp, cursor:'pointer' }}>
-                  <option value="">Both / General</option>
                   <option value="1">Block 1</option>
                   <option value="2">Block 2</option>
                 </select>
