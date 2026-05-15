@@ -85,6 +85,9 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   const [oldStudents, setOldStudents] = useState<Student[]>([])
   const [searching, setSearching]     = useState(false)
   const today = format(new Date(), 'yyyy-MM-dd')
+  const isEdit = !!student?.id
+  // For renewals, roll forward from the existing due_date not joining_date
+  const renewalBase = isEdit && student?.due_date ? student.due_date : null
 
   const [form, setForm] = useState({
     name:                    student?.name || '',
@@ -107,10 +110,10 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
   })
 
   // Recalc due date whenever joining_date or duration changes
-  // For renewals (edit mode): base = existing due_date (student may be overdue, so we honour the original cycle)
+  // For renewals (edit mode): base = existing due_date so overdue days are preserved
   // For new students: base = joining_date
   useEffect(() => {
-    const base = (isEdit && student?.due_date) ? student.due_date : form.joining_date
+    const base = renewalBase || form.joining_date
     const due = calcDueDate(base, form.duration)
     setForm(f => ({ ...f, due_date: due }))
   }, [form.joining_date, form.duration])
@@ -200,7 +203,6 @@ export default function StudentForm({ block, seatNumber, student, isFlexible = f
 
   const exams    = ['UPSC','MPSC','NEET','JEE','CA','CET','Banking','Railway','SSC','GATE','IAS','IPS','Other']
   const accounts = ['Account 1','Account 2','Cash','UPI','Other']
-  const isEdit   = !!student?.id
   const flexible = isFlexible || !seatNumber
 
   return (
