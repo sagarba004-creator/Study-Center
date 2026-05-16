@@ -237,15 +237,24 @@ export default function Analytics() {
           ))}
         </div>
         <div style={{ display:'flex', gap:'4px', alignItems:'center' }}>
-          <button onClick={() => setSelectedYear(y => y - 1)}
-            style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color:'#94a3b8', fontSize:'16px' }}>‹</button>
+          <button onClick={() => {
+            const newYear = selectedYear - 1
+            setSelectedYear(newYear)
+            if (plView === 'monthly') setSelectedMonth(m => `${newYear}-${m.slice(5)}`)
+          }} style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color:'#94a3b8', fontSize:'16px' }}>‹</button>
           <span style={{ color:'#e2e8f0', fontWeight:'800', fontSize:'14px', minWidth:'44px', textAlign:'center' }}>{selectedYear}</span>
-          <button onClick={() => setSelectedYear(y => y + 1)} disabled={selectedYear >= new Date().getFullYear()}
+          <button onClick={() => {
+            const newYear = selectedYear + 1
+            setSelectedYear(newYear)
+            if (plView === 'monthly') setSelectedMonth(m => `${newYear}-${m.slice(5)}`)
+          }} disabled={selectedYear >= new Date().getFullYear()}
             style={{ background:'rgba(255,255,255,0.08)', border:'none', borderRadius:'6px', width:'28px', height:'28px', cursor:'pointer', color: selectedYear >= new Date().getFullYear() ? '#334155' : '#94a3b8', fontSize:'16px' }}>›</button>
         </div>
         {plView === 'monthly' && (
-          <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-            style={{ padding:'6px 10px', borderRadius:'8px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'13px', fontFamily:'inherit', outline:'none' }} />
+          <input type="month" value={selectedMonth} onChange={e => {
+            setSelectedMonth(e.target.value)
+            setSelectedYear(parseInt(e.target.value.slice(0, 4)))
+          }} style={{ padding:'6px 10px', borderRadius:'8px', border:'1.5px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.06)', color:'#f1f5f9', fontSize:'13px', fontFamily:'inherit', outline:'none' }} />
         )}
       </div>
 
